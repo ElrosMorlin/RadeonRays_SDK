@@ -764,7 +764,26 @@ void StartRenderThreads()
     std::cout << g_cfgs.size() << " OpenCL submission threads started\n";
 }
 
-void UpdateFrame() {
+void UpdateFrame(bool clear = false) {
+
+	if (clear)
+	{
+		g_scene->set_dirty(Baikal::Scene::kCamera);
+
+		if (g_num_samples > -1)
+		{
+			g_samplecount = 0;
+		}
+
+		for (int i = 0; i < g_cfgs.size(); ++i)
+		{
+			if (i == g_primary)
+				g_cfgs[i].renderer->Clear(float3(0, 0, 0), *g_outputs[i].output);
+			else
+				g_ctrl[i].clear.store(true);
+		}
+	}
+
 	g_cfgs[g_primary].renderer->Render(*g_scene.get());
 	for (int i = 0; i < g_cfgs.size(); ++i)
 	{
@@ -800,22 +819,32 @@ void UpdateFrame() {
 	}
 }
 
-void ExtractSingleFrame() {
+void ExtractSingleFrame(const std::string& filename_prefix = "") {
 	if (!g_interop)
 	{
-		int sample_frame = 50;
+		int sample_frame = 1;
 		for (int i = 0;i < sample_frame;i++) {
-			UpdateFrame();
+			UpdateFrame( i == 0 ); // clear screen buffer for first render
 		}
 		std::cout << *g_scene->camera_ << std::endl;
 		std::ostringstream oss;
-		oss << "aov_color_" << sample_frame << ".hdr";
+		oss << filename_prefix << "_" << sample_frame << ".hdr";
 		SaveFrameBuffer(oss.str(), &g_outputs[g_primary].fdata[0]);
 	}
 	else {
 		std::cout << "Please disable interop to enable extraction" << std::endl;
 	}
 
+}
+
+void ExtractMultipleFrames() {
+	for (int i = 0;i < 5;i++) {
+		std::ostringstream oss;
+		oss << "multiple_" << i;
+		ExtractSingleFrame(oss.str());
+		g_scene->camera_->Rotate(0.1);
+		g_scene->camera_->Tilt(0.1);
+	}
 }
 
 int main(int argc, char * argv[])
@@ -913,7 +942,8 @@ int main(int argc, char * argv[])
 	{
 		InitCl();
 		InitData();
-		ExtractSingleFrame();
+		ExtractMultipleFrames();
+		//ExtractSingleFrame("single");
 	}
 	catch (std::runtime_error& err)
 	{
