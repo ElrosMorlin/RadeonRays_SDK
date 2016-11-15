@@ -100,8 +100,8 @@ float g_ao_radius = 1.f;
 float g_envmapmul = 1.f;
 float g_cspeed = 100.25f;
 
-float3 g_camera_pos = float3(0.f, 1.f, 4.f);
-float3 g_camera_at = float3(0.f, 1.f, 0.f);
+float3 g_camera_pos = float3(-211.064f, 14.515f, 657.349f);
+float3 g_camera_at = float3(-210.682f, 14.5645f, 656.426f);
 float3 g_camera_up = float3(0.f, 1.f, 0.f);
 
 float2 g_camera_sensor_size = float2(0.036f, 0.024f);  // default full frame sensor 36x24 mm
@@ -451,6 +451,7 @@ void OnKey(int key, int x, int y)
     case GLUT_KEY_F4:
         if (!g_interop)
         {
+			std::cout << *g_scene->camera_ << std::endl;
             std::ostringstream oss;
             oss << "aov_color_" << g_frame_count << ".hdr";
             SaveFrameBuffer(oss.str(), &g_outputs[g_primary].fdata[0]);

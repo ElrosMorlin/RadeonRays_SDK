@@ -19,3 +19,5 @@ Bin/Release/x64/App64.exe
 *.opendb
 *.db
 *.sln
+
+/App/*.hdr
