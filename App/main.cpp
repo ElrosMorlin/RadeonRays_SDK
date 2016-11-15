@@ -21,6 +21,8 @@ THE SOFTWARE.
 ********************************************************************/
 #include "OpenImageIO/imageio.h"
 
+#define USE_SINGLE_CAPTURE
+
 #ifdef __APPLE__
 #include <OpenCL/OpenCL.h>
 #include <OpenGL/OpenGL.h>
@@ -102,7 +104,9 @@ float g_cspeed = 100.25f;
 
 float3 g_camera_pos = float3(-211.064f, 14.515f, 657.349f);
 float3 g_camera_at = float3(-210.682f, 14.5645f, 656.426f);
-float3 g_camera_up = float3(0.f, 1.f, 0.f);
+//float3 g_camera_pos = float3(0, 1, 4);
+//float3 g_camera_at = float3(0, 1, 0);
+float3 g_camera_up = float3(0.f, -1.f, 0);
 
 float2 g_camera_sensor_size = float2(0.036f, 0.024f);  // default full frame sensor 36x24 mm
 float2 g_camera_zcap = float2(0.0f, 100000.f);
@@ -707,7 +711,6 @@ void Update()
         std::cout << "Shadow rays: " << (float)(numrays / (stats.shadow_rays_time_in_ms * 0.001f) * 0.000001f) << "mrays/s ( " << stats.shadow_rays_time_in_ms << "ms )\n";
         g_benchmark = false;
     }
-
     glutPostRedisplay();
 }
 
@@ -759,6 +762,60 @@ void StartRenderThreads()
     }
 
     std::cout << g_cfgs.size() << " OpenCL submission threads started\n";
+}
+
+void UpdateFrame() {
+	g_cfgs[g_primary].renderer->Render(*g_scene.get());
+	for (int i = 0; i < g_cfgs.size(); ++i)
+	{
+		if (g_cfgs[i].type == ConfigManager::kPrimary)
+			continue;
+
+		int desired = 1;
+		if (std::atomic_compare_exchange_strong(&g_ctrl[i].newdata, &desired, 0))
+		{
+			{
+				g_cfgs[g_primary].context.WriteBuffer(0, g_outputs[g_primary].copybuffer, &g_outputs[i].fdata[0], g_window_width * g_window_height);
+			}
+
+			CLWKernel acckernel = g_cfgs[g_primary].renderer->GetAccumulateKernel();
+
+			int argc = 0;
+			acckernel.SetArg(argc++, g_outputs[g_primary].copybuffer);
+			acckernel.SetArg(argc++, g_window_width * g_window_width);
+			acckernel.SetArg(argc++, g_outputs[g_primary].output->data());
+
+			int globalsize = g_window_width * g_window_height;
+			g_cfgs[g_primary].context.Launch1D(0, ((globalsize + 63) / 64) * 64, 64, acckernel);
+		}
+	}
+	g_outputs[g_primary].output->GetData(&g_outputs[g_primary].fdata[0]);
+	float gamma = 2.2f;
+	for (int i = 0; i < (int)g_outputs[g_primary].fdata.size(); ++i)
+	{
+		g_outputs[g_primary].udata[4 * i] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].x / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_outputs[g_primary].udata[4 * i + 1] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].y / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_outputs[g_primary].udata[4 * i + 2] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].z / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_outputs[g_primary].udata[4 * i + 3] = 1;
+	}
+}
+
+void ExtractSingleFrame() {
+	if (!g_interop)
+	{
+		int sample_frame = 50;
+		for (int i = 0;i < sample_frame;i++) {
+			UpdateFrame();
+		}
+		std::cout << *g_scene->camera_ << std::endl;
+		std::ostringstream oss;
+		oss << "aov_color_" << sample_frame << ".hdr";
+		SaveFrameBuffer(oss.str(), &g_outputs[g_primary].fdata[0]);
+	}
+	else {
+		std::cout << "Please disable interop to enable extraction" << std::endl;
+	}
+
 }
 
 int main(int argc, char * argv[])
@@ -851,7 +908,19 @@ int main(int argc, char * argv[])
     {
         g_progressive = true;
     }
-
+#ifdef USE_SINGLE_CAPTURE
+	try
+	{
+		InitCl();
+		InitData();
+		ExtractSingleFrame();
+	}
+	catch (std::runtime_error& err)
+	{
+		std::cout << err.what();
+		return -1;
+	}
+#else
     // GLUT Window Initialization:
     glutInit(&argc, (char**)argv);
     glutInitWindowSize(g_window_width, g_window_height);
@@ -885,7 +954,10 @@ int main(int argc, char * argv[])
 
         StartRenderThreads();
 
+		
         glutMainLoop();
+		
+		
 
         for (int i = 0; i < g_cfgs.size(); ++i)
         {
@@ -900,6 +972,7 @@ int main(int argc, char * argv[])
         std::cout << err.what();
         return -1;
     }
+#endif
 
     return 0;
 }
