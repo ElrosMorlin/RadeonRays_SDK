@@ -322,6 +322,59 @@ namespace RadeonRays
 
     }
 
+	// COVART: Multiple Version
+	void CalcIntersectionDevice::MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event) const
+	{
+		// Extract Calc buffers from their holders
+		auto ray_buffer = static_cast<CalcBufferHolder const*>(rays)->m_buffer.get();
+		auto hit_buffer = static_cast<CalcBufferHolder const*>(hits)->m_buffer.get();
+		auto numrays_buffer = static_cast<CalcBufferHolder const*>(numrays)->m_buffer.get();
+		// If waitevent is passed in we have to extract it as well
+		auto e = waitevent ? static_cast<CalcEventHolder const*>(waitevent)->m_event.get() : nullptr;
+
+		if (event)
+		{
+			// event pointer has been provided, so construct holder and return event to the user
+			Calc::Event* calc_event = nullptr;
+			m_intersector->QueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
+
+			auto holder = CreateEventHolder();
+			holder->Set(m_device.get(), calc_event);
+			*event = holder;
+		}
+		else
+		{
+			m_intersector->QueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
+		}
+	}
+
+	// COVART: Multiple Version
+	void CalcIntersectionDevice::MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event) const
+	{
+		// Extract Calc buffers from their holders
+		auto ray_buffer = static_cast<CalcBufferHolder const*>(rays)->m_buffer.get();
+		auto hit_buffer = static_cast<CalcBufferHolder const*>(hits)->m_buffer.get();
+		auto numrays_buffer = static_cast<CalcBufferHolder const*>(numrays)->m_buffer.get();
+		// If waitevent is passed in we have to extract it as well
+		auto e = waitevent ? static_cast<CalcEventHolder const*>(waitevent)->m_event.get() : nullptr;
+
+		if (event)
+		{
+			// event pointer has been provided, so construct holder and return event to the user
+			Calc::Event* calc_event = nullptr;
+			m_intersector->QueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
+
+			auto holder = CreateEventHolder();
+			holder->Set(m_device.get(), calc_event);
+			*event = holder;
+		}
+		else
+		{
+			m_intersector->QueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
+		}
+
+	}
+
     CalcEventHolder* CalcIntersectionDevice::CreateEventHolder() const
     {
         if (m_event_pool.empty())

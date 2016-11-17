@@ -76,6 +76,28 @@ namespace RadeonRays
                                     Calc::Buffer* hits,
                                     Calc::Event const* waitevent,
                                     Calc::Event** event) const = 0;
+		// COVART: empty implementation by default
+		// COVART: Multiple: Query intersections for rays buffer and write them into hits buffer. The call is blocking if event == nullptr, non-blocking otherwise.
+		virtual void MultipleQueryIntersection(std::uint32_t queueidx,
+			Calc::Buffer const* rays,
+			Calc::Buffer const* numrays,
+			std::uint32_t maxrays,
+			Calc::Buffer* hits,
+			Calc::Event const* waitevent,
+			Calc::Event** event) const {
+			throw("Not implemented");
+		};
+
+		// COVART: Multiple:  Query occlusion for rays buffer and write them into hits buffer. The call is blocking if event == nullptr, non-blocking otherwise.
+		virtual void MultipleQueryOcclusion(std::uint32_t queueidx,
+			Calc::Buffer const* rays,
+			Calc::Buffer const* numrays,
+			std::uint32_t maxrays,
+			Calc::Buffer* hits,
+			Calc::Event const* waitevent,
+			Calc::Event** event) const {
+			throw("Not implemented");
+		};
 
         Strategy(Strategy const&) = delete;
         Strategy& operator = (Strategy const&) = delete;

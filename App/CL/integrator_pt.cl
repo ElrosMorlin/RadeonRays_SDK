@@ -290,6 +290,7 @@ __kernel void MultipleShadeVolume(
 )
 {
 	int globalid = get_global_id(0);
+
 	// TODO: mask workload
 	if (get_global_id(1) != 0) {
 		return;
@@ -742,15 +743,15 @@ __kernel void MultipleShadeSurface(
 	// boundary size
 	int boundary_size, 
 	// Ray batch
-	__global ray const* rays,
+	__global ray const* multiple_rays,
 	// Intersection data
-	__global Intersection const* isects,
+	__global Intersection const* multiple_isects,
 	// Hit indices
-	__global int const* hitindices,
+	__global int const* multiple_hitindices,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const* multiple_pixelindices,
 	// Number of rays
-	__global int const* numhits,
+	__global int const* multiple_numhits,
 	// Vertices
 	__global float3 const* vertices,
 	// Normals
@@ -778,7 +779,7 @@ __kernel void MultipleShadeSurface(
 	// RNG seed
 	int rngseed,
 	// Sampler states
-	__global SobolSampler* samplers,
+	__global SobolSampler* multiple_samplers,
 	// Sobol matrices
 	__global uint const* sobolmat,
 	// Current bounce
@@ -786,23 +787,52 @@ __kernel void MultipleShadeSurface(
 	// Volume data
 	__global Volume const* volumes,
 	// Shadow rays
-	__global ray* shadowrays,
+	__global ray* multiple_shadowrays,
 	// Light samples
-	__global float3* lightsamples,
+	__global float3* multiple_lightsamples,
 	// Path throughput
-	__global Path* paths,
+	__global Path* multiple_paths,
 	// Indirect rays
-	__global ray* indirectrays,
+	__global ray* multiple_indirectrays,
 	// Radiance
-	__global float3* output
+	__global float3* multiple_output
 )
 {
 	int globalid = get_global_id(0);
+	int workload_shift = (boundary_size * get_global_id(1));
 
-	// TODO: mask other workload
-	if (get_global_id(1) != 0) {
+	if (workload_shift != 0) {
 		return;
 	}
+
+	// Ray batch
+	__global ray const* rays = multiple_rays + workload_shift;
+	// Intersection data
+	__global Intersection const* isects = multiple_isects + workload_shift;
+	// Hit indices
+	__global int const* hitindices = multiple_hitindices + workload_shift;
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+	// Number of rays
+	__global int const* numhits = multiple_numhits + workload_shift;
+
+	// Sampler states
+	__global SobolSampler* samplers = multiple_samplers + workload_shift;
+
+	// Shadow rays
+	__global ray* shadowrays = multiple_shadowrays + +workload_shift;
+	// Light samples
+	__global float3* lightsamples = multiple_lightsamples + workload_shift;
+	// Path throughput
+	__global Path* paths = multiple_paths + workload_shift;
+	// Indirect rays
+	__global ray* indirectrays = multiple_indirectrays + workload_shift;
+	// Radiance
+	__global float3* output = multiple_output + workload_shift;
+
+
+
+
 	Scene scene =
 	{
 		vertices,

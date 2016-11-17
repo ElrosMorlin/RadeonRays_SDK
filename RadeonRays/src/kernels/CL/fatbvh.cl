@@ -711,3 +711,111 @@ __kernel void IntersectAnyRC(
         }
     }
 }
+
+// COVART: Multiple
+// Version with range check
+__kernel void MultipleIntersectClosestRC(
+	__global FatBvhNode const* nodes,   // BVH nodes
+	__global float3 const* vertices, // Scene positional data
+	__global Face const* faces,      // Scene indices
+	__global ShapeData const* shapes,     // Shape data
+	__global ray const* rays,        // Ray workload
+	int offset,                // Offset in rays array
+	__global int const* numrays,     // Number of rays in the workload
+	int maxrays,                // Max rays
+	__global Intersection* hits // Hit datas
+	, __global int* stack
+)
+{
+	__local int ldsstack[SHORT_STACK_SIZE * 64];
+
+	int global_id = get_global_id(0);
+	int local_id = get_local_id(0);
+	int group_id = get_group_id(0);
+
+	// Fill scene data 
+	SceneData scenedata =
+	{
+		nodes,
+		vertices,
+		faces,
+		shapes,
+		0
+	};
+
+	// compute my mutiple_view_index
+	int mutiple_view_index = global_id / maxrays;
+
+	int current_view_global_id = global_id - mutiple_view_index * maxrays;
+	// Handle only working subset
+	if (current_view_global_id < *(numrays + mutiple_view_index))
+	{
+		// Fetch ray
+		ray r = rays[global_id];
+
+		if (Ray_IsActive(&r))
+		{
+			// Calculate closest hit
+			Intersection isect;
+#ifndef GLOBAL_STACK 
+			IntersectSceneClosest(&scenedata, &r, &isect, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id);
+#else
+			IntersectSceneClosest(&scenedata, &r, &isect);
+#endif
+			// Write data back in case of a hit
+			hits[global_id] = isect;
+		}
+	}
+}
+
+// COVART: Multiple
+// Version with range check
+__kernel void MultipleIntersectAnyRC(
+	// Input
+	__global FatBvhNode const* nodes,   // BVH nodes
+	__global float3 const* vertices, // Scene positional data
+	__global Face const* faces,    // Scene indices
+	__global ShapeData const* shapes,     // Shape data
+	__global ray const* rays,        // Ray workload
+	int offset,                // Offset in rays array
+	__global int const* numrays,     // Number of rays in the workload
+	int maxrays,                // Max rays
+	__global int* hitresults   // Hit results
+	, __global int* stack
+)
+{
+	__local int ldsstack[SHORT_STACK_SIZE * 64];
+	int global_id = get_global_id(0);
+	int local_id = get_local_id(0);
+	int group_id = get_group_id(0);
+
+	// Fill scene data 
+	SceneData scenedata =
+	{
+		nodes,
+		vertices,
+		faces,
+		shapes,
+		0
+	};
+	// compute my mutiple_view_index
+	int mutiple_view_index = global_id / maxrays;
+
+	int current_view_global_id = global_id - mutiple_view_index * maxrays;
+	// Handle only working subset
+	if (current_view_global_id < *(numrays + mutiple_view_index))
+	{
+		// Fetch ray
+		ray r = rays[global_id];
+
+		if (Ray_IsActive(&r))
+		{
+			// Calculate any intersection
+#ifndef GLOBAL_STACK 
+			hitresults[global_id] = IntersectSceneAny(&scenedata, &r, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id) ? 1 : -1;
+#else
+			hitresults[global_id] = IntersectSceneAny(&scenedata, &r) ? 1 : -1;
+#endif
+		}
+	}
+}

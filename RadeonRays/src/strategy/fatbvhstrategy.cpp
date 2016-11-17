@@ -79,6 +79,9 @@ namespace RadeonRays
         Calc::Function* occlude_func;
         Calc::Function* isect_indirect_func;
         Calc::Function* occlude_indirect_func;
+		// COVART: Multiple
+		Calc::Function* multiple_isect_indirect_func;
+		Calc::Function* multiple_occlude_indirect_func;
 
         GpuData(Calc::Device* d)
         : device(d)
@@ -93,6 +96,8 @@ namespace RadeonRays
                           , occlude_func(nullptr)
                           , isect_indirect_func(nullptr)
                           , occlude_indirect_func(nullptr)
+					  	  , multiple_isect_indirect_func(nullptr) // COVART
+					      , multiple_occlude_indirect_func(nullptr) // COVART
         {
         }
 
@@ -108,6 +113,8 @@ namespace RadeonRays
             executable->DeleteFunction(occlude_func);
             executable->DeleteFunction(isect_indirect_func);
             executable->DeleteFunction(occlude_indirect_func);
+			executable->DeleteFunction(multiple_isect_indirect_func); // COVART
+			executable->DeleteFunction(multiple_occlude_indirect_func); // COVART
             device->DeleteExecutable(executable);
         }
     };
@@ -159,6 +166,9 @@ namespace RadeonRays
         m_gpudata->occlude_func = m_gpudata->executable->CreateFunction("IntersectAny");
         m_gpudata->isect_indirect_func = m_gpudata->executable->CreateFunction("IntersectClosestRC");
         m_gpudata->occlude_indirect_func = m_gpudata->executable->CreateFunction("IntersectAnyRC");
+		// COVART
+		m_gpudata->multiple_isect_indirect_func = m_gpudata->executable->CreateFunction("MultipleIntersectClosestRC");
+		m_gpudata->multiple_occlude_indirect_func = m_gpudata->executable->CreateFunction("MultipleIntersectAnyRC");
     }
 
     void FatBvhStrategy::Preprocess(World const& world)
@@ -606,4 +616,74 @@ namespace RadeonRays
 
         m_device->Execute(func, queueidx, globalsize, localsize, event);
     }
+
+	// COVART: Multiple
+	void FatBvhStrategy::MultipleQueryIntersection(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event) const
+	{
+		size_t stack_size = 4 * maxrays * kMaxStackSize; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
+														 // Check if we need to relocate memory
+		if (stack_size > m_gpudata->stack->GetSize())
+		{
+			m_device->DeleteBuffer(m_gpudata->stack);
+			m_gpudata->stack = nullptr;
+			m_gpudata->stack = m_device->CreateBuffer(stack_size, Calc::BufferType::kWrite);
+		}
+
+		auto& func = m_gpudata->multiple_isect_indirect_func;
+
+		// Set args
+		int arg = 0;
+		int offset = 0;
+
+		func->SetArg(arg++, m_gpudata->bvh);
+		func->SetArg(arg++, m_gpudata->vertices);
+		func->SetArg(arg++, m_gpudata->faces);
+		func->SetArg(arg++, m_gpudata->shapes);
+		func->SetArg(arg++, rays);
+		func->SetArg(arg++, sizeof(offset), &offset);
+		func->SetArg(arg++, numrays);
+		func->SetArg(arg++, sizeof(maxrays), &maxrays);
+		func->SetArg(arg++, hits);
+		func->SetArg(arg++, m_gpudata->stack);
+
+		size_t localsize = kWorkGroupSize;
+		size_t globalsize = ((maxrays + kWorkGroupSize - 1) / kWorkGroupSize) * kWorkGroupSize * MULTIPLE_VIEW_SIZE;
+
+		m_device->Execute(func, queueidx, globalsize, localsize, event);
+	}
+
+	// COVART: Multiple
+	void FatBvhStrategy::MultipleQueryOcclusion(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event) const
+	{
+		size_t stack_size = 4 * maxrays * kMaxStackSize; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
+														 // Check if we need to relocate memory
+		if (stack_size > m_gpudata->stack->GetSize())
+		{
+			m_device->DeleteBuffer(m_gpudata->stack);
+			m_gpudata->stack = nullptr;
+			m_gpudata->stack = m_device->CreateBuffer(stack_size, Calc::BufferType::kWrite);
+		}
+
+		auto& func = m_gpudata->multiple_occlude_indirect_func;
+
+		// Set args
+		int arg = 0;
+		int offset = 0;
+
+		func->SetArg(arg++, m_gpudata->bvh);
+		func->SetArg(arg++, m_gpudata->vertices);
+		func->SetArg(arg++, m_gpudata->faces);
+		func->SetArg(arg++, m_gpudata->shapes);
+		func->SetArg(arg++, rays);
+		func->SetArg(arg++, sizeof(offset), &offset);
+		func->SetArg(arg++, numrays);
+		func->SetArg(arg++, sizeof(maxrays), &maxrays);
+		func->SetArg(arg++, hits);
+		func->SetArg(arg++, m_gpudata->stack);
+
+		size_t localsize = kWorkGroupSize;
+		size_t globalsize = ((maxrays + kWorkGroupSize - 1) / kWorkGroupSize) * kWorkGroupSize * MULTIPLE_VIEW_SIZE;
+
+		m_device->Execute(func, queueidx, globalsize, localsize, event);
+	}
 }

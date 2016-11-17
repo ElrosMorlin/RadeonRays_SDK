@@ -144,7 +144,17 @@ namespace RadeonRays
     {
         m_device->QueryOcclusion(rays, numrays, maxrays, hitresults, waitevent, event);
     }
-
+	// COVART: multiple version
+	void IntersectionApiImpl::MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event) const
+	{
+		m_device->QueryIntersection(rays, numrays, maxrays, hitinfos, waitevent, event);
+	}
+	// COVART: multiple version
+	void IntersectionApiImpl::MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event) const
+	{
+		m_device->QueryOcclusion(rays, numrays, maxrays, hitresults, waitevent, event);
+	}
+	// COVART: multiple version
     void IntersectionApiImpl::DeleteEvent(Event* event) const
     {
         m_device->DeleteEvent(event);

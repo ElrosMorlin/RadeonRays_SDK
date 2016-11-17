@@ -171,7 +171,7 @@ __kernel void PerspectiveCamera_GenerateMultiplePaths(
 
 	// Check borders
 	// TODO: mask other workloads
-	if (globalid.x < imgwidth && globalid.y < imgheight && globalid.z == 0)
+	if (globalid.x < imgwidth && globalid.y < imgheight && workload_shift == 0)
 	{
 		// Get pointer to ray to handle
 		__global ray* myray =  rays + workload_shift +  (globalid.y * imgwidth + globalid.x);

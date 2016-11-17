@@ -25,6 +25,7 @@ THE SOFTWARE.
 #include "device.h"
 #include "strategy.h"
 #include <memory>
+#include "multiple_view.h"
 
 
 namespace RadeonRays
@@ -67,6 +68,23 @@ namespace RadeonRays
                             Calc::Buffer* hits,
                             Calc::Event const* waitevent,
                             Calc::Event** event) const override;
+		// COVART: Multiple
+		void MultipleQueryIntersection(std::uint32_t queueidx,
+			Calc::Buffer const* rays,
+			Calc::Buffer const* numrays,
+			std::uint32_t maxrays,
+			Calc::Buffer* hits,
+			Calc::Event const* waitevent,
+			Calc::Event** event) const override;
+
+		// COVART: Multiple
+		void MultipleQueryOcclusion(std::uint32_t queueidx,
+			Calc::Buffer const* rays,
+			Calc::Buffer const* numrays,
+			std::uint32_t maxrays,
+			Calc::Buffer* hits,
+			Calc::Event const* waitevent,
+			Calc::Event** event) const override;
         
     private:
         struct GpuData;

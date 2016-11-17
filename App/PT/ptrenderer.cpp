@@ -306,6 +306,7 @@ namespace Baikal
         }
     }
 
+	// COVART:TODO: implement for other BVH besides FatBVH
 	void PtRenderer::MultipleViewRender(Scene&  scene) {
 		auto api = m_scene_tracker.GetIntersectionApi();
 		auto& clwscene = m_scene_tracker.CompileScene(scene);
@@ -332,7 +333,7 @@ namespace Baikal
 			// COVART: clear that of multi-view
 			m_context.FillBuffer(0, m_multiple_render_data->hits, 0, m_multiple_render_data->hits.GetElementCount());
 
-			// TODO: replace with multiple intersection
+			
 			// Intersect ray batch
 			//Event* e = nullptr;
 			api->QueryIntersection(m_multiple_render_data->fr_rays[pass & 0x1], m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_intersections, nullptr, nullptr);
@@ -589,7 +590,6 @@ namespace Baikal
     }
 
 	// COVART
-	// TODO: currently generate only for first portion 
 	void PtRenderer::MultipleGeneratePrimaryRays(ClwScene& scene)
 	{
 		// Fetch kernel
