@@ -50,6 +50,8 @@ namespace Baikal
         virtual void Render(Scene const& scene) = 0;
         // Set output
         virtual void SetOutput(Output* output) = 0;
+		// Multiple View render, will modify the camera
+		virtual void MultipleViewRender(Scene&  scene) = 0;
 
 
         struct BenchmarkStats

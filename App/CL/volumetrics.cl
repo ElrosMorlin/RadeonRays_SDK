@@ -238,4 +238,106 @@ __kernel void EvaluateVolume(
     }
 }
 
+
+// COVART: multiple	
+// Apply volume effects (absorbtion and emission) and scatter if needed.
+// The rays we handling here might intersect something or miss, 
+// since scattering can happen even for missed rays.
+// That's why this function is called prior to ray compaction.
+// In case ray has missed geometry (has shapeid < 0) and has been scattered,
+// we put FAKE_SHAPE_SENTINEL into shapeid to prevent ray from being compacted away.
+//
+__kernel void MultipleEvaluateVolume(
+	// Ray batch
+	__global ray const* rays,
+	// Pixel indices
+	__global int const* pixelindices,
+	// Number of rays
+	__global int const* numrays,
+	// Volumes
+	__global Volume const* volumes,
+	// Textures
+	TEXTURE_ARG_LIST,
+	// RNG seed
+	int rngseed,
+	// Sampler state
+	__global SobolSampler* samplers,
+	// Sobol matrices
+	__global uint const* sobolmat,
+	// Current bounce 
+	int bounce,
+	// Intersection data
+	__global Intersection* isects,
+	// Current paths
+	__global Path* paths,
+	// Output
+	__global float3* output
+)
+{
+	int globalid = get_global_id(0);
+	// TODO: mask workload
+	if (get_global_id(1) != 0) {
+		return;
+	}
+
+	// Only handle active rays
+	if (globalid < *numrays)
+	{
+		int pixelidx = pixelindices[globalid];
+
+		__global Path* path = paths + pixelidx;
+
+		// Path can be dead here since compaction step has not 
+		// yet been applied
+		if (!Path_IsAlive(path))
+			return;
+
+		int volidx = Path_GetVolumeIdx(path);
+
+		// Check if we are inside some volume
+		if (volidx != -1)
+		{
+#ifdef SOBOL
+			__global SobolSampler* sampler = samplers + pixelidx;
+			float sample = SobolSampler_Sample1D(sampler->seq, GetSampleDim(bounce, kVolume), sampler->s0, sobolmat);
+#else
+			Rng rng;
+			InitRng(rngseed + (globalid << 2) * 157 + 13, &rng);
+			float sample = UniformSampler_Sample2D(&rng).x;
+#endif
+			// Try sampling volume for a next scattering event
+			float pdf = 0.f;
+			float maxdist = Intersection_GetDistance(isects + globalid);
+			float d = Volume_SampleDistance(&volumes[volidx], &rays[globalid], maxdist, sample, &pdf);
+
+			// Check if we shall skip the event (it is either outside of a volume or not happened at all)
+			bool skip = d < 0 || d > maxdist || pdf <= 0.f;
+
+			if (skip)
+			{
+				// In case we skip we just need to apply volume absorbtion and emission for the segment we went through
+				// and clear scatter flag
+				Path_ClearScatterFlag(path);
+				// Emission contribution accounting for a throughput we have so far
+				Path_AddContribution(path, output, pixelidx, Volume_Emission(&volumes[volidx], &rays[globalid], maxdist));
+				// And finally update the throughput
+				Path_MulThroughput(path, Volume_Transmittance(&volumes[volidx], &rays[globalid], maxdist));
+			}
+			else
+			{
+				// Set scattering flag to notify ShadeVolume kernel to handle this path
+				Path_SetScatterFlag(path);
+				// Emission contribution accounting for a throughput we have so far
+				Path_AddContribution(path, output, pixelidx, Volume_Emission(&volumes[volidx], &rays[globalid], d) / pdf);
+				// Update the throughput
+				Path_MulThroughput(path, (Volume_Transmittance(&volumes[volidx], &rays[globalid], d) / pdf));
+				// Put fake shape to prevent from being compacted away
+				isects[globalid].shapeid = FAKE_SHAPE_SENTINEL;
+				// And keep scattering distance around as well
+				isects[globalid].uvwt.w = d;
+			}
+		}
+	}
+}
+
 #endif // VOLUMETRICS_CL

@@ -144,6 +144,97 @@ __kernel void PerspectiveCamera_GeneratePaths(
     }
 }
 
+__kernel void PerspectiveCamera_GenerateMultiplePaths(
+	// Camera descriptor
+	__global Camera const* camera,
+	// Image resolution
+	int imgwidth,
+	int imgheight,
+	// RNG seed value
+	int randseed,
+	// Output rays
+	__global ray* rays,
+	__global SobolSampler* samplers,
+	__global uint const* sobolmat,
+	int reset
+#ifndef NO_PATH_DATA
+	, __global Path* paths
+#endif
+)
+{
+	int3 globalid;
+	globalid.x = get_global_id(0);
+	globalid.y = get_global_id(1);
+	globalid.z = get_global_id(2); // this is data number
+	int workload_shift = (imgwidth * imgheight * globalid.z);
+	
+
+	// Check borders
+	// TODO: mask other workloads
+	if (globalid.x < imgwidth && globalid.y < imgheight && globalid.z == 0)
+	{
+		// Get pointer to ray to handle
+		__global ray* myray =  rays + workload_shift +  (globalid.y * imgwidth + globalid.x);
+
+#ifndef NO_PATH_DATA
+		__global Path* mypath = paths + workload_shift + (globalid.y * imgwidth + globalid.x);
+#endif
+
+		// Prepare RNG
+		Rng rng;
+		InitRng(randseed + globalid.x * 157 + 10433 * globalid.y, &rng);
+
+#ifdef SOBOL
+		__global SobolSampler* sampler = samplers + workload_shift + (globalid.y * imgwidth + globalid.x);
+
+		if (reset)
+		{
+			sampler->seq = 0;
+			sampler->s0 = RandUint(&rng);
+		}
+		else
+		{
+			sampler->seq++;
+		}
+
+		float2 sample0;
+		sample0.x = SobolSampler_Sample1D(sampler->seq, kPixelX, sampler->s0, sobolmat);
+		sample0.y = SobolSampler_Sample1D(sampler->seq, kPixelY, sampler->s0, sobolmat);
+#else
+		float2 sample0 = UniformSampler_Sample2D(&rng);
+#endif
+
+		// Calculate [0..1] image plane sample
+		float2 imgsample;
+		imgsample.x = (float)globalid.x / imgwidth + sample0.x / imgwidth;
+		imgsample.y = (float)globalid.y / imgheight + sample0.y / imgheight;
+
+		// Transform into [-0.5, 0.5]
+		float2 hsample = imgsample - make_float2(0.5f, 0.5f);
+		// Transform into [-dim/2, dim/2]
+		float2 csample = hsample * camera->dim;
+
+		// Calculate direction to image plane
+		myray->d.xyz = normalize(camera->focal_length * camera->forward + csample.x * camera->right + csample.y * camera->up);
+		// Origin == camera position + nearz * d
+		myray->o.xyz = camera->p + camera->zcap.x * myray->d.xyz;
+		// Max T value = zfar - znear since we moved origin to znear
+		myray->o.w = camera->zcap.y - camera->zcap.x;
+		// Generate random time from 0 to 1
+		myray->d.w = sample0.x;
+		// Set ray max
+		myray->extra.x = 0xFFFFFFFF;
+		myray->extra.y = 0xFFFFFFFF;
+
+#ifndef NO_PATH_DATA
+		mypath->throughput = make_float3(1.f, 1.f, 1.f);
+		mypath->volume = -1;
+		mypath->flags = 0;
+		mypath->active = 0xFF;
+#endif
+	}
+}
+
 /// Ray generation kernel for perspective camera.
 /// Rays are generated from camera position to viewing plane
 /// using random sample distribution within the pixel.

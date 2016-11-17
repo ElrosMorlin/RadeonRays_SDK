@@ -764,6 +764,64 @@ void StartRenderThreads()
     std::cout << g_cfgs.size() << " OpenCL submission threads started\n";
 }
 
+void UpdateFrameMultiple(bool clear = false) {
+
+	if (clear)
+	{
+		g_scene->set_dirty(Baikal::Scene::kCamera);
+
+		if (g_num_samples > -1)
+		{
+			g_samplecount = 0;
+		}
+
+		for (int i = 0; i < g_cfgs.size(); ++i)
+		{
+			if (i == g_primary)
+				g_cfgs[i].renderer->Clear(float3(0, 0, 0), *g_outputs[i].output);
+			else
+				g_ctrl[i].clear.store(true);
+		}
+	}
+
+	g_cfgs[g_primary].renderer->MultipleViewRender(*g_scene.get());
+	// No use: because we only have 1 conf
+	/*
+	for (int i = 0; i < g_cfgs.size(); ++i)
+	{
+		if (g_cfgs[i].type == ConfigManager::kPrimary)
+			continue;
+
+		int desired = 1;
+		if (std::atomic_compare_exchange_strong(&g_ctrl[i].newdata, &desired, 0))
+		{
+			{
+				g_cfgs[g_primary].context.WriteBuffer(0, g_outputs[g_primary].copybuffer, &g_outputs[i].fdata[0], g_window_width * g_window_height);
+			}
+
+			CLWKernel acckernel = g_cfgs[g_primary].renderer->GetAccumulateKernel();
+
+			int argc = 0;
+			acckernel.SetArg(argc++, g_outputs[g_primary].copybuffer);
+			acckernel.SetArg(argc++, g_window_width * g_window_width);
+			acckernel.SetArg(argc++, g_outputs[g_primary].output->data());
+
+			int globalsize = g_window_width * g_window_height;
+			g_cfgs[g_primary].context.Launch1D(0, ((globalsize + 63) / 64) * 64, 64, acckernel);
+		}
+	}
+	*/
+	g_outputs[g_primary].output->GetData(&g_outputs[g_primary].fdata[0]);
+	float gamma = 2.2f;
+	for (int i = 0; i < (int)g_outputs[g_primary].fdata.size(); ++i)
+	{
+		g_outputs[g_primary].udata[4 * i] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].x / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_outputs[g_primary].udata[4 * i + 1] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].y / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_outputs[g_primary].udata[4 * i + 2] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].z / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_outputs[g_primary].udata[4 * i + 3] = 1;
+	}
+}
+
 void UpdateFrame(bool clear = false) {
 
 	if (clear)
@@ -845,6 +903,24 @@ void ExtractMultipleFrames() {
 		g_scene->camera_->Rotate(0.1);
 		g_scene->camera_->Tilt(0.1);
 	}
+}
+
+void ExtractSingleFrameMultipleView(const std::string& filename_prefix = "") {
+	if (!g_interop)
+	{
+		int sample_frame = 1;
+		for (int i = 0;i < sample_frame;i++) {
+			UpdateFrameMultiple(i == 0); // clear screen buffer for first render
+		}
+		std::cout << *g_scene->camera_ << std::endl;
+		std::ostringstream oss;
+		oss << filename_prefix << "_" << sample_frame << ".hdr";
+		SaveFrameBuffer(oss.str(), &g_outputs[g_primary].fdata[0]);
+	}
+	else {
+		std::cout << "Please disable interop to enable extraction" << std::endl;
+	}
+
 }
 
 int main(int argc, char * argv[])
@@ -942,8 +1018,9 @@ int main(int argc, char * argv[])
 	{
 		InitCl();
 		InitData();
-		ExtractMultipleFrames();
+		//ExtractMultipleFrames();
 		//ExtractSingleFrame("single");
+		ExtractSingleFrameMultipleView("single_multiple_view");
 	}
 	catch (std::runtime_error& err)
 	{

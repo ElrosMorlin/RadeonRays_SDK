@@ -27,6 +27,8 @@ THE SOFTWARE.
 
 #include "CLW.h"
 
+#define MULTIPLE_VIEW_SIZE 2
+
 namespace Baikal
 {
     class ClwOutput;
@@ -61,6 +63,8 @@ namespace Baikal
         CLWKernel GetCopyKernel();
         // Add function
         CLWKernel GetAccumulateKernel();
+		// Multiple View render, will modify the camera
+		void MultipleViewRender(Scene&  scene) override;
 
         // Run render benchmark
         void RunBenchmark(Scene const& scene, std::uint32_t num_passes, BenchmarkStats& stats) override;
@@ -70,22 +74,40 @@ namespace Baikal
         void ResizeWorkingSet(Output const& output);
         // Generate rays
         void GeneratePrimaryRays(ClwScene const& scene);
+		// COVART: Generate rays
+		void MultipleGeneratePrimaryRays(ClwScene& scene);
         // Shade first hit
         void ShadeSurface(ClwScene const& scene, int pass);
+		// COVART: Shade first hit
+		void MultipleShadeSurface(ClwScene const& scene, int pass);
         // Evaluate volume
         void EvaluateVolume(ClwScene const& scene, int pass);
+		// COVART: Evaluate volume
+		void MultipleEvaluateVolume(ClwScene const& scene, int pass);
         // Handle missing rays
         void ShadeMiss(ClwScene const& scene, int pass);
+		// COVART: Handle missing rays
+		void MultipleShadeMiss(ClwScene const& scene, int pass);
         // Gather light samples and account for visibility
         void GatherLightSamples(ClwScene const& scene, int pass);
+		// COVART: Gather light samples and account for visibility
+		void MultipleGatherLightSamples(ClwScene const& scene, int pass);
         // Restore pixel indices after compaction
         void RestorePixelIndices(int pass);
+		// COVART: Restore pixel indices after compaction
+		void MultipleRestorePixelIndices(int pass);
         // Convert intersection info to compaction predicate
         void FilterPathStream(int pass);
+		// COVART: Convert intersection info to compaction predicate
+		void MultipleFilterPathStream(int pass);
         // Integrate volume
         void ShadeVolume(ClwScene const& scene, int pass);
+		// COVART: Integrate volume
+		void MultipleShadeVolume(ClwScene const& scene, int pass);
         // Shade background
         void ShadeBackground(ClwScene const& scene, int pass);
+		// COVART: Shade background
+		void MultipleShadeBackground(ClwScene const& scene, int pass);
 
     public:
         // CL context
@@ -101,8 +123,12 @@ namespace Baikal
         struct QmcSampler;
         struct PathState;
         struct RenderData;
+		struct MultipleRenderData;
 
         std::unique_ptr<RenderData> m_render_data;
+
+		// COVART: MultipleRenderData
+		std::unique_ptr<MultipleRenderData> m_multiple_render_data;
 
         // Intersector data
         std::vector<RadeonRays::Shape*> m_shapes;

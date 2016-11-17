@@ -263,8 +263,7 @@ unsigned int CLWProgram::GetKernelCount() const
 CLWKernel CLWProgram::GetKernel(std::string const& funcName) const
 {
     auto iter = kernels_.find(funcName);
-    
-    ThrowIf(iter == kernels_.end(), CL_INVALID_KERNEL_NAME, "No such kernel in program");
+    ThrowIf(iter == kernels_.end(), CL_INVALID_KERNEL_NAME, std::string("No such kernel in program:") + funcName);
     
     return iter->second;
 }
