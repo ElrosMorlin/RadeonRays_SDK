@@ -324,7 +324,7 @@ namespace Baikal
 		// COVART: copy data for multiple render data
 		m_context.CopyBuffer(0, m_multiple_render_data->iota, m_multiple_render_data->pixelindices[0], 0, 0, m_multiple_render_data->iota.GetElementCount());
 		m_context.CopyBuffer(0, m_multiple_render_data->iota, m_multiple_render_data->pixelindices[1], 0, 0, m_multiple_render_data->iota.GetElementCount());
-		m_context.FillBuffer(0, m_multiple_render_data->hitcount, maxrays, 1);
+		m_context.FillBuffer(0, m_multiple_render_data->hitcount, maxrays, MULTIPLE_VIEW_SIZE);
 		
 		// Initialize first pass
 		for (int pass = 0; pass < m_num_bounces; ++pass)
@@ -336,7 +336,7 @@ namespace Baikal
 			
 			// Intersect ray batch
 			//Event* e = nullptr;
-			api->QueryIntersection(m_multiple_render_data->fr_rays[pass & 0x1], m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_intersections, nullptr, nullptr);
+			api->MultipleQueryIntersection(m_multiple_render_data->fr_rays[pass & 0x1], m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_intersections, nullptr, nullptr);
 			//e->Wait();
 			//m_api->DeleteEvent(e);
 			
@@ -374,7 +374,7 @@ namespace Baikal
 				MultipleShadeMiss(clwscene, pass);
 
 			// Intersect shadow rays
-			api->QueryOcclusion(m_multiple_render_data->fr_shadowrays, m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_shadowhits, nullptr, nullptr);
+			api->MultipleQueryOcclusion(m_multiple_render_data->fr_shadowrays, m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_shadowhits, nullptr, nullptr);
 			//e->Wait();
 			//m_api->DeleteEvent(e);
 

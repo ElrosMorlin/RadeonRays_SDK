@@ -801,10 +801,6 @@ __kernel void MultipleShadeSurface(
 	int globalid = get_global_id(0);
 	int workload_shift = (boundary_size * get_global_id(1));
 
-	if (workload_shift != 0) {
-		return;
-	}
-
 	// Ray batch
 	__global ray const* rays = multiple_rays + workload_shift;
 	// Intersection data

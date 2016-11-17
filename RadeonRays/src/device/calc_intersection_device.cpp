@@ -336,7 +336,7 @@ namespace RadeonRays
 		{
 			// event pointer has been provided, so construct holder and return event to the user
 			Calc::Event* calc_event = nullptr;
-			m_intersector->QueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
+			m_intersector->MultipleQueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
 
 			auto holder = CreateEventHolder();
 			holder->Set(m_device.get(), calc_event);
@@ -344,7 +344,7 @@ namespace RadeonRays
 		}
 		else
 		{
-			m_intersector->QueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
+			m_intersector->MultipleQueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
 		}
 	}
 
@@ -362,7 +362,7 @@ namespace RadeonRays
 		{
 			// event pointer has been provided, so construct holder and return event to the user
 			Calc::Event* calc_event = nullptr;
-			m_intersector->QueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
+			m_intersector->MultipleQueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
 
 			auto holder = CreateEventHolder();
 			holder->Set(m_device.get(), calc_event);
@@ -370,7 +370,7 @@ namespace RadeonRays
 		}
 		else
 		{
-			m_intersector->QueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
+			m_intersector->MultipleQueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
 		}
 
 	}

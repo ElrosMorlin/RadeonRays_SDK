@@ -1,3 +1,3 @@
 #pragma once
 
-#define MULTIPLE_VIEW_SIZE 3
+#define MULTIPLE_VIEW_SIZE 9

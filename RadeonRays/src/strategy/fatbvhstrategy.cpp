@@ -620,7 +620,7 @@ namespace RadeonRays
 	// COVART: Multiple
 	void FatBvhStrategy::MultipleQueryIntersection(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event) const
 	{
-		size_t stack_size = 4 * maxrays * kMaxStackSize; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
+		size_t stack_size = 4 * maxrays * kMaxStackSize * MULTIPLE_VIEW_SIZE; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
 														 // Check if we need to relocate memory
 		if (stack_size > m_gpudata->stack->GetSize())
 		{
@@ -648,14 +648,13 @@ namespace RadeonRays
 
 		size_t localsize = kWorkGroupSize;
 		size_t globalsize = ((maxrays + kWorkGroupSize - 1) / kWorkGroupSize) * kWorkGroupSize * MULTIPLE_VIEW_SIZE;
-
 		m_device->Execute(func, queueidx, globalsize, localsize, event);
 	}
 
 	// COVART: Multiple
 	void FatBvhStrategy::MultipleQueryOcclusion(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event) const
 	{
-		size_t stack_size = 4 * maxrays * kMaxStackSize; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
+		size_t stack_size = 4 * maxrays * kMaxStackSize * MULTIPLE_VIEW_SIZE; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
 														 // Check if we need to relocate memory
 		if (stack_size > m_gpudata->stack->GetSize())
 		{
