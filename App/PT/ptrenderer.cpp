@@ -149,6 +149,7 @@ namespace Baikal
     PtRenderer::PtRenderer(CLWContext context, int devidx, int num_bounces)
         : m_context(context)
         , m_output(nullptr)
+		, m_multiple_output(nullptr)
         , m_render_data(new RenderData)
 		, m_multiple_render_data(new MultipleRenderData)
         , m_vidmemws(0)
@@ -202,6 +203,11 @@ namespace Baikal
     {
         return new ClwOutput(w, h, m_context);
     }
+
+	Output* PtRenderer::CreateMultipleOutput(std::uint32_t w, std::uint32_t h) const
+	{
+		return new ClwMultipleOutput(w, h, m_context);
+	}
 
     void PtRenderer::DeleteOutput(Output* output) const
     {
@@ -305,10 +311,10 @@ namespace Baikal
 		auto& clwscene = m_scene_tracker.CompileScene(scene);
 
 		// Check output
-		assert(m_output);
+		assert(m_multiple_output);
 
 		// Number of rays to generate
-		int maxrays = m_output->width() * m_output->height();
+		int maxrays = m_multiple_output->width() * m_multiple_output->height();
 
 		// Generate primary
 		MultipleGeneratePrimaryRays(clwscene);
@@ -367,7 +373,7 @@ namespace Baikal
 				MultipleShadeMiss(clwscene, pass);
 
 			// Intersect shadow rays
-			api->QueryOcclusion(m_render_data->fr_shadowrays, m_render_data->fr_hitcount, maxrays, m_render_data->fr_shadowhits, nullptr, nullptr);
+			api->QueryOcclusion(m_multiple_render_data->fr_shadowrays, m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_shadowhits, nullptr, nullptr);
 			//e->Wait();
 			//m_api->DeleteEvent(e);
 
@@ -388,56 +394,93 @@ namespace Baikal
         m_output = static_cast<ClwOutput*>(output);
     }
 
-    void PtRenderer::ResizeWorkingSet(Output const& output)
-    {
-        m_vidmemws = 0;
+	// TODO: switch bwteern output and multiple output
+	void PtRenderer::SetMultipleOutput(Output* output)
+	{
+		if (!m_multiple_output || m_multiple_output->width() < output->width() || m_multiple_output->height() < output->height())
+		{
+			MultipleResizeWorkingSet(*output);
+		}
 
-        // Create ray payloads, for original one
-        m_render_data->rays[0] = m_context.CreateBuffer<ray>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(ray);
+		m_multiple_output = static_cast<ClwMultipleOutput*>(output);
+	}
 
-        m_render_data->rays[1] = m_context.CreateBuffer<ray>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(ray);
+	void PtRenderer::ResizeWorkingSet(Output const& output)
+	{
+		m_vidmemws = 0;
 
-        m_render_data->hits = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(int);
+		// Create ray payloads
+		m_render_data->rays[0] = m_context.CreateBuffer<ray>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(ray);
 
-        m_render_data->intersections = m_context.CreateBuffer<Intersection>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(Intersection);
+		m_render_data->rays[1] = m_context.CreateBuffer<ray>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(ray);
 
-        m_render_data->shadowrays = m_context.CreateBuffer<ray>(output.width() * output.height() * kMaxLightSamples, CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(ray)* kMaxLightSamples;
+		m_render_data->hits = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(int);
 
-        m_render_data->shadowhits = m_context.CreateBuffer<int>(output.width() * output.height() * kMaxLightSamples, CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(int)* kMaxLightSamples;
+		m_render_data->intersections = m_context.CreateBuffer<Intersection>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(Intersection);
 
-        m_render_data->lightsamples = m_context.CreateBuffer<float3>(output.width() * output.height() * kMaxLightSamples, CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(float3)* kMaxLightSamples;
+		m_render_data->shadowrays = m_context.CreateBuffer<ray>(output.width() * output.height() * kMaxLightSamples, CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(ray)* kMaxLightSamples;
 
-        m_render_data->paths = m_context.CreateBuffer<PathState>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(PathState);
+		m_render_data->shadowhits = m_context.CreateBuffer<int>(output.width() * output.height() * kMaxLightSamples, CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(int)* kMaxLightSamples;
 
-        m_render_data->samplers = m_context.CreateBuffer<QmcSampler>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(QmcSampler);
+		m_render_data->lightsamples = m_context.CreateBuffer<float3>(output.width() * output.height() * kMaxLightSamples, CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(float3)* kMaxLightSamples;
 
-        std::vector<int> initdata(output.width() * output.height());
-        std::iota(initdata.begin(), initdata.end(), 0);
-        m_render_data->iota = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, &initdata[0]);
-        m_vidmemws += output.width() * output.height() * sizeof(int);
+		m_render_data->paths = m_context.CreateBuffer<PathState>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(PathState);
 
-        m_render_data->compacted_indices = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(int);
+		m_render_data->samplers = m_context.CreateBuffer<QmcSampler>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(QmcSampler);
 
-        m_render_data->pixelindices[0] = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(int);
+		std::vector<int> initdata(output.width() * output.height());
+		std::iota(initdata.begin(), initdata.end(), 0);
+		m_render_data->iota = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, &initdata[0]);
+		m_vidmemws += output.width() * output.height() * sizeof(int);
 
-        m_render_data->pixelindices[1] = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
-        m_vidmemws += output.width() * output.height() * sizeof(int);
+		m_render_data->compacted_indices = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(int);
 
-        m_render_data->hitcount = m_context.CreateBuffer<int>(1, CL_MEM_READ_WRITE);
+		m_render_data->pixelindices[0] = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(int);
+
+		m_render_data->pixelindices[1] = m_context.CreateBuffer<int>(output.width() * output.height(), CL_MEM_READ_WRITE);
+		m_vidmemws += output.width() * output.height() * sizeof(int);
+
+		m_render_data->hitcount = m_context.CreateBuffer<int>(1, CL_MEM_READ_WRITE);
+
+		auto api = m_scene_tracker.GetIntersectionApi();
+
+		// Recreate FR buffers
+		api->DeleteBuffer(m_render_data->fr_rays[0]);
+		api->DeleteBuffer(m_render_data->fr_rays[1]);
+		api->DeleteBuffer(m_render_data->fr_shadowrays);
+		api->DeleteBuffer(m_render_data->fr_hits);
+		api->DeleteBuffer(m_render_data->fr_shadowhits);
+		api->DeleteBuffer(m_render_data->fr_intersections);
+		api->DeleteBuffer(m_render_data->fr_hitcount);
+
+		m_render_data->fr_rays[0] = CreateFromOpenClBuffer(api, m_render_data->rays[0]);
+		m_render_data->fr_rays[1] = CreateFromOpenClBuffer(api, m_render_data->rays[1]);
+		m_render_data->fr_shadowrays = CreateFromOpenClBuffer(api, m_render_data->shadowrays);
+		m_render_data->fr_hits = CreateFromOpenClBuffer(api, m_render_data->hits);
+		m_render_data->fr_shadowhits = CreateFromOpenClBuffer(api, m_render_data->shadowhits);
+		m_render_data->fr_intersections = CreateFromOpenClBuffer(api, m_render_data->intersections);
+		m_render_data->fr_hitcount = CreateFromOpenClBuffer(api, m_render_data->hitcount);
+
+		std::cout << "Vidmem usage (working set): " << m_vidmemws / (1024 * 1024) << "Mb\n";
+	}
+
+	// COVART: multiple resize
+	void PtRenderer::MultipleResizeWorkingSet(Output const& output)
+	{
 
 		// COVART: create buffer for multiple view data
-		// m_vidmemws = 0; // TOOD: record memory usage??
+		m_vidmemws = 0; 
 
 		// Create ray payloads, for multiple view
 		m_multiple_render_data->rays[0] = m_context.CreateBuffer<ray>(output.width() * output.height() * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
@@ -467,6 +510,8 @@ namespace Baikal
 		m_multiple_render_data->samplers = m_context.CreateBuffer<QmcSampler>(output.width() * output.height() * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
 		m_vidmemws += output.width() * output.height() * sizeof(QmcSampler) * MULTIPLE_VIEW_SIZE;
 
+		std::vector<int> initdata(output.width() * output.height());
+		std::iota(initdata.begin(), initdata.end(), 0);
 		std::vector<int> multi_initdata;
 		multi_initdata.reserve(output.width() * output.height() * MULTIPLE_VIEW_SIZE);
 		// copy initdata for * MULTIPLE_VIEW_SIZE times
@@ -491,24 +536,8 @@ namespace Baikal
 
 
 		// Remaining
-        auto api = m_scene_tracker.GetIntersectionApi();
+		auto api = m_scene_tracker.GetIntersectionApi();
 
-        // Recreate FR buffers
-        api->DeleteBuffer(m_render_data->fr_rays[0]);
-        api->DeleteBuffer(m_render_data->fr_rays[1]);
-        api->DeleteBuffer(m_render_data->fr_shadowrays);
-        api->DeleteBuffer(m_render_data->fr_hits);
-        api->DeleteBuffer(m_render_data->fr_shadowhits);
-        api->DeleteBuffer(m_render_data->fr_intersections);
-        api->DeleteBuffer(m_render_data->fr_hitcount);
-
-        m_render_data->fr_rays[0] = CreateFromOpenClBuffer(api, m_render_data->rays[0]);
-        m_render_data->fr_rays[1] = CreateFromOpenClBuffer(api, m_render_data->rays[1]);
-        m_render_data->fr_shadowrays = CreateFromOpenClBuffer(api, m_render_data->shadowrays);
-        m_render_data->fr_hits = CreateFromOpenClBuffer(api, m_render_data->hits);
-        m_render_data->fr_shadowhits = CreateFromOpenClBuffer(api, m_render_data->shadowhits);
-        m_render_data->fr_intersections = CreateFromOpenClBuffer(api, m_render_data->intersections);
-        m_render_data->fr_hitcount = CreateFromOpenClBuffer(api, m_render_data->hitcount);
 		// COVART: Recreate FR buffers for multiple view
 		api->DeleteBuffer(m_multiple_render_data->fr_rays[0]);
 		api->DeleteBuffer(m_multiple_render_data->fr_rays[1]);
@@ -526,8 +555,8 @@ namespace Baikal
 		m_multiple_render_data->fr_intersections = CreateFromOpenClBuffer(api, m_multiple_render_data->intersections);
 		m_multiple_render_data->fr_hitcount = CreateFromOpenClBuffer(api, m_multiple_render_data->hitcount);
 
-        std::cout << "Vidmem usage (working set): " << m_vidmemws / (1024 * 1024) << "Mb\n";
-    }
+		std::cout << "Vidmem usage (working set): " << m_vidmemws / (1024 * 1024) << "Mb\n";
+	}
 
     void PtRenderer::GeneratePrimaryRays(ClwScene const& scene)
     {
@@ -567,12 +596,12 @@ namespace Baikal
 		std::string kernel_name = (scene.camera_type == CameraType::kDefault) ? "PerspectiveCamera_GenerateMultiplePaths" : "PerspectiveCamera_GenerateMultiplePaths";
 		//TODO: pending function: PerspectiveCameraDof_GenerateMultiplePaths
 
-		CLWKernel genkernel = m_render_data->program.GetKernel(kernel_name);
+		CLWKernel genkernel = m_multiple_render_data->program.GetKernel(kernel_name);
 
 		// Set kernel parameters
 		genkernel.SetArg(0, scene.camera);
-		genkernel.SetArg(1, m_output->width());
-		genkernel.SetArg(2, m_output->height());
+		genkernel.SetArg(1, m_multiple_output->width());
+		genkernel.SetArg(2, m_multiple_output->height());
 		genkernel.SetArg(3, (int)rand_uint());
 		genkernel.SetArg(4, m_multiple_render_data->rays[0]);
 		genkernel.SetArg(5, m_multiple_render_data->samplers);
@@ -583,7 +612,7 @@ namespace Baikal
 
 		// Run generation kernel
 		{
-			size_t gs[] = { static_cast<size_t>((m_output->width() + 7) / 8 * 8), static_cast<size_t>((m_output->height() + 7) / 8 * 8), MULTIPLE_VIEW_SIZE };
+			size_t gs[] = { static_cast<size_t>((m_multiple_output->width() + 7) / 8 * 8), static_cast<size_t>((m_multiple_output->height() + 7) / 8 * 8), MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 8, 8, 1 };
 
 			auto evt = m_context.Launch3D(0, gs, ls, genkernel);
@@ -643,7 +672,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
-		shadekernel.SetArg(argc++, m_output->width() * m_output->height());
+		shadekernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		shadekernel.SetArg(argc++, m_multiple_render_data->rays[pass & 0x1]);
 		shadekernel.SetArg(argc++, m_multiple_render_data->intersections);
 		shadekernel.SetArg(argc++, m_multiple_render_data->compacted_indices);
@@ -671,11 +700,11 @@ namespace Baikal
 		shadekernel.SetArg(argc++, m_multiple_render_data->lightsamples);
 		shadekernel.SetArg(argc++, m_multiple_render_data->paths);
 		shadekernel.SetArg(argc++, m_multiple_render_data->rays[(pass + 1) & 0x1]);
-		shadekernel.SetArg(argc++, m_output->data());
+		shadekernel.SetArg(argc++, m_multiple_output->data());
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE};
 			size_t ls[] = {64, 1};
 			m_context.Launch2D(0, gs, ls, shadekernel);
@@ -761,11 +790,11 @@ namespace Baikal
 		shadekernel.SetArg(argc++, m_multiple_render_data->lightsamples);
 		shadekernel.SetArg(argc++, m_multiple_render_data->paths);
 		shadekernel.SetArg(argc++, m_multiple_render_data->rays[(pass + 1) & 0x1]);
-		shadekernel.SetArg(argc++, m_output->data());
+		shadekernel.SetArg(argc++, m_multiple_output->data());
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, shadekernel);
@@ -821,11 +850,11 @@ namespace Baikal
 		evalkernel.SetArg(argc++, pass);
 		evalkernel.SetArg(argc++, m_multiple_render_data->intersections);
 		evalkernel.SetArg(argc++, m_multiple_render_data->paths);
-		evalkernel.SetArg(argc++, m_output->data());
+		evalkernel.SetArg(argc++, m_multiple_output->data());
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, evalkernel);
@@ -866,7 +895,7 @@ namespace Baikal
 		// Fetch kernel
 		CLWKernel misskernel = m_multiple_render_data->program.GetKernel("MultipleShadeMiss");
 
-		int numrays = m_output->width() * m_output->height();
+		int numrays = m_multiple_output->width() * m_multiple_output->height();
 
 		// Set kernel parameters
 		int argc = 0;
@@ -879,11 +908,11 @@ namespace Baikal
 		misskernel.SetArg(argc++, scene.envmapidx);
 		misskernel.SetArg(argc++, m_multiple_render_data->paths);
 		misskernel.SetArg(argc++, scene.volumes);
-		misskernel.SetArg(argc++, m_output->data());
+		misskernel.SetArg(argc++, m_multiple_output->data());
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, misskernel);
@@ -926,11 +955,11 @@ namespace Baikal
 		gatherkernel.SetArg(argc++, m_multiple_render_data->shadowhits);
 		gatherkernel.SetArg(argc++, m_multiple_render_data->lightsamples);
 		gatherkernel.SetArg(argc++, m_multiple_render_data->paths);
-		gatherkernel.SetArg(argc++, m_output->data());
+		gatherkernel.SetArg(argc++, m_multiple_output->data());
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, gatherkernel);
@@ -972,7 +1001,7 @@ namespace Baikal
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, restorekernel);
@@ -1020,7 +1049,7 @@ namespace Baikal
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, restorekernel);
@@ -1028,7 +1057,7 @@ namespace Baikal
 		}
 
 		//int cnt = 0;
-		//m_context.ReadBuffer(0, m_render_data->debug, &cnt, 1).Wait();
+		//m_context.ReadBuffer(0, m_multiple_render_data->debug, &cnt, 1).Wait();
 		//std::cout << "Pass " << pass << " killed " << cnt << "\n";
 	}
 
@@ -1080,7 +1109,7 @@ namespace Baikal
 		// Fetch kernel
 		CLWKernel misskernel = m_multiple_render_data->program.GetKernel("MultipleShadeBackground");
 
-		//int numrays = m_output->width() * m_output->height();
+		//int numrays = m_multiple_output->width() * m_multiple_output->height();
 
 		// Set kernel parameters
 		int argc = 0;
@@ -1095,11 +1124,11 @@ namespace Baikal
 		misskernel.SetArg(argc++, scene.numemissive);
 		misskernel.SetArg(argc++, m_multiple_render_data->paths);
 		misskernel.SetArg(argc++, scene.volumes);
-		misskernel.SetArg(argc++, m_output->data());
+		misskernel.SetArg(argc++, m_multiple_output->data());
 
 		// Run shading kernel
 		{
-			int globalsize = m_output->width() * m_output->height();
+			int globalsize = m_multiple_output->width() * m_multiple_output->height();
 			size_t gs[] = { ((globalsize + 63) / 64) * 64 , MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 64, 1 };
 			m_context.Launch2D(0, gs, ls, misskernel);

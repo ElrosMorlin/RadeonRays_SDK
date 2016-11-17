@@ -24,15 +24,17 @@ THE SOFTWARE.
 #include "Core/renderer.h"
 #include "CLW/clwscene.h"
 #include "Scene/scene_tracker.h"
+#include "multiple_view.h"
 
 #include "CLW.h"
 
-#define MULTIPLE_VIEW_SIZE 2
+
 
 namespace Baikal
 {
     class ClwOutput;
-    struct ClwScene;
+	class ClwMultipleOutput; // COVART
+	struct ClwScene;
     class SceneTracker;
 
     ///< Renderer implementation
@@ -47,6 +49,8 @@ namespace Baikal
         // Renderer overrides
         // Create output
         Output* CreateOutput(std::uint32_t w, std::uint32_t h) const override;
+		// COVART: Create multiple output
+		Output* CreateMultipleOutput(std::uint32_t w, std::uint32_t h) const override;
         // Delete output
         void DeleteOutput(Output* output) const override;
         // Clear output
@@ -57,7 +61,9 @@ namespace Baikal
         void Render(Scene const& scene) override;
         // Set output
         void SetOutput(Output* output) override;
-        // Set number of light bounces
+        // COVART: multiple
+		void SetMultipleOutput(Output* output) override;
+		// Set number of light bounces
         void SetNumBounces(int num_bounces);
         // Interop function
         CLWKernel GetCopyKernel();
@@ -72,7 +78,9 @@ namespace Baikal
     protected:
         // Resize output-dependent buffers
         void ResizeWorkingSet(Output const& output);
-        // Generate rays
+		// Resize output-dependent buffers
+		void MultipleResizeWorkingSet(Output const& output);
+		// Generate rays
         void GeneratePrimaryRays(ClwScene const& scene);
 		// COVART: Generate rays
 		void MultipleGeneratePrimaryRays(ClwScene& scene);
@@ -114,6 +122,8 @@ namespace Baikal
         CLWContext m_context;
         // Output object
         ClwOutput* m_output;
+		// COVART: multiple Output object
+		ClwMultipleOutput* m_multiple_output;
         // Flag to reset the sampler
         mutable bool m_resetsampler;
         // Scene tracker

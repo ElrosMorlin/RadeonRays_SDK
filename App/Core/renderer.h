@@ -39,7 +39,9 @@ namespace Baikal
         virtual ~Renderer() = default;
         // Create output
         virtual Output* CreateOutput(std::uint32_t w, std::uint32_t h) const = 0;
-        // Delete output
+		// COVART: multiple
+		virtual Output* CreateMultipleOutput(std::uint32_t w, std::uint32_t h) const = 0;
+		// Delete output
         virtual void DeleteOutput(Output* output) const = 0;
         // Clear output
         virtual void Clear(RadeonRays::float3 const& val, Output& output) const = 0;
@@ -50,6 +52,8 @@ namespace Baikal
         virtual void Render(Scene const& scene) = 0;
         // Set output
         virtual void SetOutput(Output* output) = 0;
+		// COVART: multiple
+		virtual void SetMultipleOutput(Output* output) = 0;
 		// Multiple View render, will modify the camera
 		virtual void MultipleViewRender(Scene&  scene) = 0;
 

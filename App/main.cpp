@@ -132,6 +132,16 @@ struct OutputData
     CLWBuffer<float3> copybuffer;
 };
 
+
+// COVART: Multiple Output Data
+struct MultipleOutputData
+{
+	Baikal::ClwMultipleOutput* output;
+	std::vector<float3> fdata;
+	std::vector<unsigned char> udata;
+	CLWBuffer<float3> copybuffer;
+};
+
 struct ControlData
 {
     std::atomic<int> clear;
@@ -143,6 +153,7 @@ struct ControlData
 
 std::vector<ConfigManager::Config> g_cfgs;
 std::vector<OutputData> g_outputs;
+std::vector<MultipleOutputData> g_multiple_outputs;
 std::unique_ptr<ControlData[]> g_ctrl;
 std::vector<std::thread> g_renderthreads;
 int g_primary = -1;
@@ -169,6 +180,7 @@ char* GetCmdOption(char ** begin, char ** end, const std::string & option);
 bool CmdOptionExists(char** begin, char** end, const std::string& option);
 void ShowHelpAndDie();
 void SaveFrameBuffer(std::string const& name, float3 const* data);
+void SaveMultipleFrameBuffer(std::string const& name, float3 const* data);
 
 void Render()
 {
@@ -296,6 +308,8 @@ void InitCl()
     g_interop = false;
 
     g_outputs.resize(g_cfgs.size());
+	// COVART: multiple output
+	g_multiple_outputs.resize(g_cfgs.size());
     g_ctrl.reset(new ControlData[g_cfgs.size()]);
 
     for (int i = 0; i < g_cfgs.size(); ++i)
@@ -368,7 +382,7 @@ void InitData()
     std::cout << "Sensor size: " << g_camera_sensor_size.x * 1000.f << "x" << g_camera_sensor_size.y * 1000.f << "mm\n";
 
     g_scene->SetEnvironment(g_envmapname, "", g_envmapmul);
-
+/*
 #pragma omp parallel for
     for (int i = 0; i < g_cfgs.size(); ++i)
     {
@@ -387,8 +401,30 @@ void InitData()
             g_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height, CL_MEM_READ_WRITE);
         }
     }
+*/
+	// COVART
+#pragma omp parallel for
+	for (int i = 0; i < g_cfgs.size(); ++i)
+	{
+		//g_cfgs[i].renderer->SetNumBounces(g_num_bounces);
+		//g_cfgs[i].renderer->Preprocess(*g_scene);
 
-    g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_outputs[g_primary].output);
+		g_multiple_outputs[i].output = (Baikal::ClwMultipleOutput*)g_cfgs[i].renderer->CreateMultipleOutput(g_window_width, g_window_height);
+
+		g_cfgs[i].renderer->SetMultipleOutput(g_multiple_outputs[i].output);
+
+		g_multiple_outputs[i].fdata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
+		g_multiple_outputs[i].udata.resize(g_window_width * g_window_height * 4 * MULTIPLE_VIEW_SIZE);
+
+		if (g_cfgs[i].type == ConfigManager::kPrimary)
+		{
+			g_multiple_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
+		}
+	}
+    //g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_outputs[g_primary].output);
+	// COVART: multiple view
+	g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_multiple_outputs[g_primary].output);
+
 }
 
 void Reshape(GLint w, GLint h)
@@ -752,6 +788,7 @@ void RenderThread(ControlData& cd)
 
 void StartRenderThreads()
 {
+	return; // COVART: Disalbe render thread
     for (int i = 0; i < g_cfgs.size(); ++i)
     {
         if (i != g_primary)
@@ -778,7 +815,7 @@ void UpdateFrameMultiple(bool clear = false) {
 		for (int i = 0; i < g_cfgs.size(); ++i)
 		{
 			if (i == g_primary)
-				g_cfgs[i].renderer->Clear(float3(0, 0, 0), *g_outputs[i].output);
+				g_cfgs[i].renderer->Clear(float3(0, 0, 0), *g_multiple_outputs[i].output);
 			else
 				g_ctrl[i].clear.store(true);
 		}
@@ -811,15 +848,18 @@ void UpdateFrameMultiple(bool clear = false) {
 		}
 	}
 	*/
-	g_outputs[g_primary].output->GetData(&g_outputs[g_primary].fdata[0]);
+	g_multiple_outputs[g_primary].output->GetData(&g_multiple_outputs[g_primary].fdata[0]);
 	float gamma = 2.2f;
-	for (int i = 0; i < (int)g_outputs[g_primary].fdata.size(); ++i)
+	// TODO: we don't need char data
+	/*
+	for (int i = 0; i < (int)g_multiple_outputs[g_primary].fdata.size(); ++i)
 	{
-		g_outputs[g_primary].udata[4 * i] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].x / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
-		g_outputs[g_primary].udata[4 * i + 1] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].y / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
-		g_outputs[g_primary].udata[4 * i + 2] = (unsigned char)clamp(clamp(pow(g_outputs[g_primary].fdata[i].z / g_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
-		g_outputs[g_primary].udata[4 * i + 3] = 1;
+		g_multiple_outputs[g_primary].udata[4 * i] = (unsigned char)clamp(clamp(pow(g_multiple_outputs[g_primary].fdata[i].x / g_multiple_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_multiple_outputs[g_primary].udata[4 * i + 1] = (unsigned char)clamp(clamp(pow(g_multiple_outputs[g_primary].fdata[i].y / g_multiple_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_multiple_outputs[g_primary].udata[4 * i + 2] = (unsigned char)clamp(clamp(pow(g_multiple_outputs[g_primary].fdata[i].z / g_multiple_outputs[g_primary].fdata[i].w, 1.f / gamma), 0.f, 1.f) * 255, 0, 255);
+		g_multiple_outputs[g_primary].udata[4 * i + 3] = 1;
 	}
+	*/
 }
 
 void UpdateFrame(bool clear = false) {
@@ -914,8 +954,8 @@ void ExtractSingleFrameMultipleView(const std::string& filename_prefix = "") {
 		}
 		std::cout << *g_scene->camera_ << std::endl;
 		std::ostringstream oss;
-		oss << filename_prefix << "_" << sample_frame << ".hdr";
-		SaveFrameBuffer(oss.str(), &g_outputs[g_primary].fdata[0]);
+		oss << filename_prefix << "_frame_num_" << sample_frame << "_";
+		SaveMultipleFrameBuffer(oss.str(), &g_multiple_outputs[g_primary].fdata[0]);
 	}
 	else {
 		std::cout << "Please disable interop to enable extraction" << std::endl;
@@ -1020,7 +1060,7 @@ int main(int argc, char * argv[])
 		InitData();
 		//ExtractMultipleFrames();
 		//ExtractSingleFrame("single");
-		ExtractSingleFrameMultipleView("single_multiple_view");
+		ExtractSingleFrameMultipleView("combine_rendering");
 	}
 	catch (std::runtime_error& err)
 	{
@@ -1130,3 +1170,14 @@ void SaveFrameBuffer(std::string const& name, float3 const* data)
     out->write_image(TypeDesc::FLOAT, &tempbuf[0], sizeof(float3));
     out->close();
 }
+
+
+void SaveMultipleFrameBuffer(std::string const& name, float3 const* data)
+{
+	for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
+		std::stringstream ss;
+		ss << name << "view_" << i << ".hdr";
+		SaveFrameBuffer(ss.str(),data + i * (g_window_width * g_window_height));
+	}
+}
+
