@@ -248,12 +248,14 @@ __kernel void EvaluateVolume(
 // we put FAKE_SHAPE_SENTINEL into shapeid to prevent ray from being compacted away.
 //
 __kernel void MultipleEvaluateVolume(
+	// boundary size
+	int boundary_size,
 	// Ray batch
-	__global ray const* rays,
+	__global ray const* multiple_rays,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const* multiple_pixelindices,
 	// Number of rays
-	__global int const* numrays,
+	__global int const* multiple_numrays,
 	// Volumes
 	__global Volume const* volumes,
 	// Textures
@@ -261,24 +263,38 @@ __kernel void MultipleEvaluateVolume(
 	// RNG seed
 	int rngseed,
 	// Sampler state
-	__global SobolSampler* samplers,
+	__global SobolSampler* multiple_samplers,
 	// Sobol matrices
 	__global uint const* sobolmat,
 	// Current bounce 
 	int bounce,
 	// Intersection data
-	__global Intersection* isects,
+	__global Intersection* multiple_isects,
 	// Current paths
-	__global Path* paths,
+	__global Path* multiple_paths,
 	// Output
-	__global float3* output
+	__global float3* multiple_output
 )
 {
 	int globalid = get_global_id(0);
-	// TODO: mask workload
-	if (get_global_id(1) != 0) {
-		return;
-	}
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
+
+
+	// Ray batch
+	__global ray const* rays = multiple_rays + workload_shift;
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+	// Number of rays
+	__global int const* numrays = multiple_numrays + view_id;
+	// Sampler state
+	__global SobolSampler* samplers = multiple_samplers + workload_shift;
+	// Intersection data
+	__global Intersection* isects = multiple_isects + workload_shift;
+	// Current paths
+	__global Path* paths = multiple_paths + workload_shift;
+	// Output
+	__global float3* output = multiple_output + workload_shift;
 
 	// Only handle active rays
 	if (globalid < *numrays)

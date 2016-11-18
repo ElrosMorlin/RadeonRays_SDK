@@ -763,6 +763,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		shadekernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		shadekernel.SetArg(argc++, m_multiple_render_data->rays[pass & 0x1]);
 		shadekernel.SetArg(argc++, m_multiple_render_data->intersections);
 		shadekernel.SetArg(argc++, m_multiple_render_data->compacted_indices);
@@ -838,6 +839,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		evalkernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		evalkernel.SetArg(argc++, m_multiple_render_data->rays[pass & 0x1]);
 		evalkernel.SetArg(argc++, m_multiple_render_data->pixelindices[(pass + 1) & 0x1]);
 		evalkernel.SetArg(argc++, m_multiple_render_data->hitcount);
@@ -899,6 +901,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		misskernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		misskernel.SetArg(argc++, m_multiple_render_data->rays[pass & 0x1]);
 		misskernel.SetArg(argc++, m_multiple_render_data->intersections);
 		misskernel.SetArg(argc++, m_multiple_render_data->pixelindices[(pass + 1) & 0x1]);
@@ -950,6 +953,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		gatherkernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		gatherkernel.SetArg(argc++, m_multiple_render_data->pixelindices[pass & 0x1]);
 		gatherkernel.SetArg(argc++, m_multiple_render_data->hitcount);
 		gatherkernel.SetArg(argc++, m_multiple_render_data->shadowhits);
@@ -994,6 +998,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		restorekernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		restorekernel.SetArg(argc++, m_multiple_render_data->compacted_indices);
 		restorekernel.SetArg(argc++, m_multiple_render_data->hitcount);
 		restorekernel.SetArg(argc++, m_multiple_render_data->pixelindices[(pass + 1) & 0x1]);
@@ -1041,6 +1046,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		restorekernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		restorekernel.SetArg(argc++, m_multiple_render_data->intersections);
 		restorekernel.SetArg(argc++, m_multiple_render_data->hitcount);
 		restorekernel.SetArg(argc++, m_multiple_render_data->pixelindices[(pass + 1) & 0x1]);
@@ -1113,6 +1119,7 @@ namespace Baikal
 
 		// Set kernel parameters
 		int argc = 0;
+		misskernel.SetArg(argc++, m_multiple_output->width() * m_multiple_output->height());
 		misskernel.SetArg(argc++, m_multiple_render_data->rays[pass & 0x1]);
 		misskernel.SetArg(argc++, m_multiple_render_data->intersections);
 		misskernel.SetArg(argc++, m_multiple_render_data->pixelindices[(pass + 1) & 0x1]);

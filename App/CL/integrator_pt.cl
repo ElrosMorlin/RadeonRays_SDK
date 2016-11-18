@@ -233,16 +233,18 @@ __kernel void ShadeVolume(
 // It applies direct illumination and generates
 // path continuation if multiscattering is enabled.
 __kernel void MultipleShadeVolume(
+	// boundary size
+	int boundary_size,
 	// Ray batch
-	__global ray const* rays,
+	__global ray const* multiple_rays,
 	// Intersection data
-	__global Intersection const* isects,
+	__global Intersection const* multiple_isects,
 	// Hit indices
-	__global int const* hitindices,
+	__global int const* multiple_hitindices,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const* multiple_pixelindices,
 	// Number of rays
-	__global int const* numhits,
+	__global int const* multiple_numhits,
 	// Vertices
 	__global float3 const* vertices,
 	// Normals
@@ -270,7 +272,7 @@ __kernel void MultipleShadeVolume(
 	// RNG seed
 	int rngseed,
 	// Sampler state
-	__global SobolSampler* samplers,
+	__global SobolSampler* multiple_samplers,
 	// Sobol matrices
 	__global uint const* sobolmat,
 	// Current bounce
@@ -278,23 +280,51 @@ __kernel void MultipleShadeVolume(
 	// Volume data
 	__global Volume const* volumes,
 	// Shadow rays
-	__global ray* shadowrays,
+	__global ray* multiple_shadowrays,
 	// Light samples
-	__global float3* lightsamples,
+	__global float3* multiple_lightsamples,
 	// Path throughput
-	__global Path* paths,
+	__global Path* multiple_paths,
 	// Indirect rays (next path segment)
-	__global ray* indirectrays,
+	__global ray* multiple_indirectrays,
 	// Radiance
-	__global float3* output
+	__global float3* multiple_output
 )
 {
 	int globalid = get_global_id(0);
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
 
-	// TODO: mask workload
-	if (get_global_id(1) != 0) {
-		return;
-	}
+
+	// Ray batch
+	__global ray const* rays = multiple_rays + workload_shift;
+	// Intersection data
+	__global Intersection const* isects = multiple_isects + workload_shift;
+	// Hit indices
+	__global int const* hitindices = multiple_hitindices + workload_shift;
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+	// Number of rays
+	__global int const* numhits = multiple_numhits + view_id;
+
+
+
+
+	// Sampler state
+	__global SobolSampler* samplers = multiple_samplers + workload_shift;
+
+	// Shadow rays
+	__global ray* shadowrays = multiple_shadowrays + workload_shift;
+	// Light samples
+	__global float3* lightsamples = multiple_lightsamples + workload_shift;
+	// Path throughput
+	__global Path* paths = multiple_paths + workload_shift;
+	// Indirect rays (next path segment)
+	__global ray* indirectrays = multiple_indirectrays + workload_shift;
+	// Radiance
+	__global float3* output = multiple_output + workload_shift;
+
+
 
 	Scene scene =
 	{
@@ -799,7 +829,9 @@ __kernel void MultipleShadeSurface(
 )
 {
 	int globalid = get_global_id(0);
-	int workload_shift = (boundary_size * get_global_id(1));
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
+
 
 	// Ray batch
 	__global ray const* rays = multiple_rays + workload_shift;
@@ -810,13 +842,13 @@ __kernel void MultipleShadeSurface(
 	// Pixel indices
 	__global int const* pixelindices = multiple_pixelindices + workload_shift;
 	// Number of rays
-	__global int const* numhits = multiple_numhits + workload_shift;
+	__global int const* numhits = multiple_numhits + view_id;
 
 	// Sampler states
 	__global SobolSampler* samplers = multiple_samplers + workload_shift;
 
 	// Shadow rays
-	__global ray* shadowrays = multiple_shadowrays + +workload_shift;
+	__global ray* shadowrays = multiple_shadowrays + workload_shift;
 	// Light samples
 	__global float3* lightsamples = multiple_lightsamples + workload_shift;
 	// Path throughput
@@ -924,7 +956,7 @@ __kernel void MultipleShadeSurface(
 		);
 
 		ndotwi = dot(diffgeo.n, wi);
-
+	
 		// Terminate if emissive
 		if (Bxdf_IsEmissive(&diffgeo))
 		{
@@ -960,6 +992,8 @@ __kernel void MultipleShadeSurface(
 			diffgeo.dpdu = -diffgeo.dpdu;
 			diffgeo.dpdv = -diffgeo.dpdv;
 		}
+
+
 
 		// TODO: this is test code, need to
 		// maintain proper volume stack here
@@ -1041,6 +1075,8 @@ __kernel void MultipleShadeSurface(
 			lightsamples[globalid] = 0;
 		}
 
+
+
 		// Apply Russian roulette
 		float q = max(min(0.5f,
 			// Luminance
@@ -1062,6 +1098,8 @@ __kernel void MultipleShadeSurface(
 		bxdfwo = normalize(bxdfwo);
 		float3 t = bxdf * fabs(dot(diffgeo.n, bxdfwo)) * bxdfweight;
 
+
+
 		// Only continue if we have non-zero throughput & pdf
 		if (NON_BLACK(t) && bxdfpdf > 0.f && !rr_stop)
 		{
@@ -1071,7 +1109,6 @@ __kernel void MultipleShadeSurface(
 			// Generate ray
 			float3 indirect_ray_dir = bxdfwo;
 			float3 indirect_ray_o = diffgeo.p + CRAZY_LOW_DISTANCE * s * diffgeo.n;
-
 			Ray_Init(indirectrays + globalid, indirect_ray_o, indirect_ray_dir, CRAZY_HIGH_DISTANCE, 0.f, 0xFFFFFFFF);
 		}
 		else
@@ -1139,12 +1176,14 @@ __kernel void ShadeMiss(
 // COVART: Multiple
 ///< Illuminate missing rays
 __kernel void MultipleShadeMiss(
+	// boundary size
+	int boundary_size,
 	// Ray batch
-	__global ray const* rays,
+	__global ray const*  multiple_rays,
 	// Intersection data
-	__global Intersection const* isects,
+	__global Intersection const*  multiple_isects,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const*  multiple_pixelindices,
 	// Number of rays
 	int numrays,
 	// Textures
@@ -1152,17 +1191,26 @@ __kernel void MultipleShadeMiss(
 	// Environment texture index
 	int envmapidx,
 	//
-	__global Path const* paths,
+	__global Path const*  multiple_paths,
 	__global Volume const* volumes,
 	// Output values
-	__global float4* output
+	__global float4*  multiple_output
 )
 {
 	int globalid = get_global_id(0);
-	//TODO: mask workload
-	if (get_global_id(1) != 0) {
-		return;
-	}
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
+
+	__global ray const* rays = multiple_rays + workload_shift;
+	// Intersection data
+	__global Intersection const* isects = multiple_isects + workload_shift;
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+
+	__global Path const* paths = multiple_paths + workload_shift;
+	// Output values
+	__global float4* output = multiple_output + workload_shift;
+
 
 	if (globalid < numrays)
 	{
@@ -1240,25 +1288,39 @@ __kernel void GatherLightSamples(
 
 ///< Handle light samples and visibility info and add contribution to final buffer
 __kernel void MultipleGatherLightSamples(
+	// boundary size
+	int boundary_size,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const* multiple_pixelindices,
 	// Number of rays
-	__global int* numrays,
+	__global int* multiple_numrays,
 	// Shadow rays hits
-	__global int const* shadowhits,
+	__global int const* multiple_shadowhits,
 	// Light samples
-	__global float3 const* lightsamples,
+	__global float3 const* multiple_lightsamples,
 	// throughput
-	__global Path const* paths,
+	__global Path const* multiple_paths,
 	// Radiance sample buffer
-	__global float4* output
+	__global float4* multiple_output
 )
 {
 	int globalid = get_global_id(0);
-	// TODO: mask workload
-	if (get_global_id(1) != 0) {
-		return;
-	}
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
+
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+	// Number of rays
+	__global int* numrays = multiple_numrays + view_id;
+	// Shadow rays hits
+	__global int const* shadowhits = multiple_shadowhits + workload_shift;
+	// Light samples
+	__global float3 const* lightsamples = multiple_lightsamples + workload_shift;
+	// throughput
+	__global Path const* paths = multiple_paths + workload_shift;
+	// Radiance sample buffer
+	__global float4* output = multiple_output + workload_shift;
+
 
 	if (globalid < *numrays)
 	{
@@ -1339,20 +1401,32 @@ __kernel void RestorePixelIndices(
 // COVART: multiple
 ///< Restore pixel indices after compaction
 __kernel void MultipleRestorePixelIndices(
+	// boundary size
+	int boundary_size,
 	// Compacted indices
-	__global int const* compacted_indices,
+	__global int const* multiple_compacted_indices,
 	// Number of compacted indices
-	__global int* numitems,
+	__global int* multiple_numitems,
 	// Previous pixel indices
-	__global int const* previndices,
+	__global int const* multiple_previndices,
 	// New pixel indices
-	__global int* newindices
+	__global int* multiple_newindices
 )
 {
 	int globalid = get_global_id(0);
-	if (get_global_id(1) != 0) {
-		return;
-	}
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
+
+
+
+	// Compacted indices
+	__global int const* compacted_indices = multiple_compacted_indices + workload_shift;
+	// Number of compacted indices
+	__global int* numitems = multiple_numitems + view_id;
+	// Previous pixel indices
+	__global int const* previndices = multiple_previndices + workload_shift;
+	// New pixel indices
+	__global int* newindices = multiple_newindices + workload_shift;
 
 	// Handle only working subset
 	if (globalid < *numitems)
@@ -1408,24 +1482,39 @@ __kernel void FilterPathStream(
 // COVART: multiple
 ///< Restore pixel indices after compaction
 __kernel void MultipleFilterPathStream(
+	// boundary size
+	int boundary_size,
 	// Intersections
-	__global Intersection const* isects,
+	__global Intersection const* multiple_isects,
 	// Number of compacted indices
-	__global int const* numitems,
+	__global int const* multiple_numitems,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const* multiple_pixelindices,
 	// Paths
-	__global Path* paths,
+	__global Path* multiple_paths,
 	// Predicate
-	__global int* predicate
+	__global int* multiple_predicate
 )
 {
 	int globalid = get_global_id(0);
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
 
-	// TODO: mask workload
-	if (get_global_id(1) != 0) {
-		return;
-	}
+
+
+	// Intersections
+	__global Intersection const* isects = multiple_isects + workload_shift;
+	// Number of compacted indices
+	__global int const* numitems = multiple_numitems + view_id;
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+	// Paths
+	__global Path* paths = multiple_paths + workload_shift;
+	// Predicate
+	__global int* predicate = multiple_predicate + workload_shift;
+
+
+
 
 	// Handle only working subset
 	if (globalid < *numitems)
@@ -1498,14 +1587,16 @@ __kernel void ShadeBackground(
 // COVART: multiple
 ///< Illuminate missing rays
 __kernel void MultipleShadeBackground(
+	// boundary size
+	int boundary_size,
 	// Ray batch
-	__global ray const* rays,
+	__global ray const* multiple_rays,
 	// Intersection data
-	__global Intersection const* isects,
+	__global Intersection const* multiple_isects,
 	// Pixel indices
-	__global int const* pixelindices,
+	__global int const* multiple_pixelindices,
 	// Number of rays
-	__global int const* numrays,
+	__global int const* multiple_numrays,
 	// Textures
 	TEXTURE_ARG_LIST,
 	// Environment texture index
@@ -1513,17 +1604,33 @@ __kernel void MultipleShadeBackground(
 	float envmapmul,
 	//
 	int numemissives,
-	__global Path const* paths,
+	__global Path const* multiple_paths,
 	__global Volume const* volumes,
 	// Output values
-	__global float4* output
+	__global float4* multiple_output
 )
 {
 	int globalid = get_global_id(0);
-	//TODO: mask workload
-	if (get_global_id(1) != 0) {
-		return;
-	}
+	int view_id = get_global_id(1);
+	int workload_shift = (boundary_size * view_id);
+
+	// Ray batch
+	__global ray const* rays = multiple_rays + workload_shift;
+	// Intersection data
+	__global Intersection const* isects = multiple_isects + workload_shift;
+	// Pixel indices
+	__global int const* pixelindices = multiple_pixelindices + workload_shift;
+	// Number of rays
+	__global int const* numrays = multiple_numrays + view_id;
+
+
+	__global Path const* paths = multiple_paths + workload_shift;
+
+
+	// Output values
+	__global float4* output = multiple_output + workload_shift;
+
+
 
 	if (globalid < *numrays)
 	{
