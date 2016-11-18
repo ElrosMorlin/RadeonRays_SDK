@@ -199,11 +199,15 @@ THE SOFTWARE.
 
 // COVART: Multiple version
 #define DEFINE_MULTIPLE_SCAN_EXCLUSIVE_4(type)\
-    __kernel void multiple_scan_exclusive_##type##4(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __local type* shmem)\
+    __kernel void multiple_scan_exclusive_##type##4(__global type##4 const* multiple_in_array, __global type##4* multiple_out_array, uint numElems, __local type* shmem)\
 {\
     int globalId  = get_global_id(0);\
     int localId   = get_local_id(0);\
     int groupSize = get_local_size(0);\
+	int view_id   = get_global_id(1);\
+	int workload_shift = view_id * numElems;\
+	__global type##4 const* in_array = multiple_in_array + workload_shift;\
+	__global type##4* out_array = multiple_out_array + workload_shift;\
     type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
     type##4 v2 = safe_load_##type##4(in_array, 2*globalId + 1, numElems);\
     v1.y += v1.x; v1.w += v1.z; v1.w += v1.y;\
@@ -281,12 +285,20 @@ THE SOFTWARE.
 
 // COVART: multiple
 #define DEFINE_MULTIPLE_SCAN_EXCLUSIVE_PART_4(type)\
-    __kernel void multiple_scan_exclusive_part_##type##4(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __global type* out_sums, __local type* shmem)\
+    __kernel void multiple_scan_exclusive_part_##type##4(__global type##4 const* multiple_in_array, __global type##4* multiple_out_array, uint numElems, __global type* multiple_out_sums, uint partBoundarySize, __local type* shmem)\
 {\
     int globalId  = get_global_id(0);\
     int localId   = get_local_id(0);\
     int groupId   = get_group_id(0);\
     int groupSize = get_local_size(0);\
+	int view_id   = get_global_id(1);\
+	int workload_shift = view_id * numElems;\
+	if(view_id != 0){ \
+		return;\
+	}\
+	__global type##4 const* in_array = multiple_in_array + workload_shift;\
+	__global type##4* out_array = multiple_out_array + workload_shift;\
+	__global type* out_sums = multiple_out_sums + view_id * partBoundarySize;\
     type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
     type##4 v2 = safe_load_##type##4(in_array, 2*globalId + 1, numElems);\
     v1.y += v1.x; v1.w += v1.z; v1.w += v1.y;\

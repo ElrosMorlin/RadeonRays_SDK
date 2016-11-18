@@ -82,7 +82,10 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddWG(unsigned int deviceId
 	topLevelScan.SetArg(2, (cl_uint)numElems);
 	topLevelScan.SetArg(3, SharedMemory(WG_SIZE * sizeof(cl_int)));
 
-	return context_.Launch1D(0, WG_SIZE, WG_SIZE, topLevelScan);
+	size_t gs[] = { WG_SIZE, multiple_size };
+	size_t ls[] = { WG_SIZE, 1 };
+
+	return context_.Launch2D(0, gs, ls, topLevelScan);
 }
 
 
@@ -140,25 +143,33 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddTwoLevel(unsigned int de
 
 	int NUM_GROUPS_BOTTOM_LEVEL_DISTRIBUTE = (numElems + GROUP_BLOCK_SIZE_DISTRIBUTE - 1) / GROUP_BLOCK_SIZE_DISTRIBUTE;
 
-	auto devicePartSums = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
+	auto devicePartSums = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN * multiple_size);
 	//context_.CreateBuffer<cl_int>(NUM_GROUPS_BOTTOM_LEVEL);
 
 	CLWKernel bottomLevelScan = program_.GetKernel("multiple_scan_exclusive_part_int4");
 	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
 	CLWKernel distributeSums = program_.GetKernel("multiple_distribute_part_sum_int4");
 
+	size_t ls[] = { WG_SIZE, 1 };
+	
 	bottomLevelScan.SetArg(0, input);
 	bottomLevelScan.SetArg(1, output);
 	bottomLevelScan.SetArg(2, numElems);
 	bottomLevelScan.SetArg(3, devicePartSums);
-	bottomLevelScan.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan);
+	bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
+	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
+	
+	
+	size_t gs_btm[] = { NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE,multiple_size };
+	size_t gs_top[] = { NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE,multiple_size };
+	
+	context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
 
 	topLevelScan.SetArg(0, devicePartSums);
 	topLevelScan.SetArg(1, devicePartSums);
-	topLevelScan.SetArg(2, (cl_uint)devicePartSums.GetElementCount());
+	topLevelScan.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	topLevelScan.SetArg(3, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE, WG_SIZE, topLevelScan);
+	context_.Launch2D(0, gs_top, ls, topLevelScan);
 
 	distributeSums.SetArg(0, devicePartSums);
 	distributeSums.SetArg(1, output);
@@ -482,36 +493,44 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	int NUM_GROUPS_BOTTOM_LEVEL_DISTRIBUTE = (numElems + GROUP_BLOCK_SIZE_DISTRIBUTE - 1) / GROUP_BLOCK_SIZE_DISTRIBUTE;
 	int NUM_GROUPS_MID_LEVEL_DISTRIBUTE = (NUM_GROUPS_BOTTOM_LEVEL_DISTRIBUTE + GROUP_BLOCK_SIZE_DISTRIBUTE - 1) / GROUP_BLOCK_SIZE_DISTRIBUTE;
 
-	auto devicePartSumsBottomLevel = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
-	auto devicePartSumsMidLevel = GetTempIntBuffer(NUM_GROUPS_MID_LEVEL_SCAN);
+	auto devicePartSumsBottomLevel = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN * multiple_size);
+	auto devicePartSumsMidLevel = GetTempIntBuffer(NUM_GROUPS_MID_LEVEL_SCAN * multiple_size);
 
 	CLWKernel bottomLevelScan = program_.GetKernel("multiple_scan_exclusive_part_int4");
 	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
-	CLWKernel distributeSums = program_.GetKernel("distribute_part_sum_int4");
+	CLWKernel distributeSums = program_.GetKernel("multiple_distribute_part_sum_int4");
+
+	size_t ls[] = { WG_SIZE, 1 };
+	size_t gs_btm[] = { NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE,multiple_size };
+	size_t gs_mid[] = { NUM_GROUPS_MID_LEVEL_SCAN * WG_SIZE,multiple_size };
+	size_t gs_top[] = { NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE,multiple_size };
+	
 
 	bottomLevelScan.SetArg(0, input);
 	bottomLevelScan.SetArg(1, output);
 	bottomLevelScan.SetArg(2, numElems);
 	bottomLevelScan.SetArg(3, devicePartSumsBottomLevel);
-	bottomLevelScan.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan);
+	bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
+	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
+	context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
 
 	bottomLevelScan.SetArg(0, devicePartSumsBottomLevel);
 	bottomLevelScan.SetArg(1, devicePartSumsBottomLevel);
-	bottomLevelScan.SetArg(2, (cl_uint)devicePartSumsBottomLevel.GetElementCount());
+	bottomLevelScan.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	bottomLevelScan.SetArg(3, devicePartSumsMidLevel);
-	bottomLevelScan.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_MID_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan);
+	bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
+	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
+	context_.Launch2D(0, gs_mid, ls, bottomLevelScan);
 
 	topLevelScan.SetArg(0, devicePartSumsMidLevel);
 	topLevelScan.SetArg(1, devicePartSumsMidLevel);
-	topLevelScan.SetArg(2, (cl_uint)devicePartSumsMidLevel.GetElementCount());
+	topLevelScan.SetArg(2, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
 	topLevelScan.SetArg(3, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE, WG_SIZE, topLevelScan);
+	context_.Launch2D(0, gs_top, ls, topLevelScan);
 
 	distributeSums.SetArg(0, devicePartSumsMidLevel);
 	distributeSums.SetArg(1, devicePartSumsBottomLevel);
-	distributeSums.SetArg(2, (cl_uint)devicePartSumsBottomLevel.GetElementCount());
+	distributeSums.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	context_.Launch1D(0, NUM_GROUPS_MID_LEVEL_DISTRIBUTE * WG_SIZE, WG_SIZE, distributeSums);
 
 	distributeSums.SetArg(0, devicePartSumsBottomLevel);
@@ -1114,9 +1133,11 @@ CLWEvent CLWParallelPrimitives::MultipleCompact(unsigned int deviceIdx, CLWBuffe
 
 	// TODO: here we only fix that for first tile
 
-	size_t numElems = predicate.GetElementCount() / multiple_size;
+	size_t numTotalElems = predicate.GetElementCount();
+	size_t numElems = numTotalElems / multiple_size;
+	
 
-	CLWBuffer<cl_int> addresses = GetTempIntBuffer(numElems);
+	CLWBuffer<cl_int> addresses = GetTempIntBuffer(numTotalElems);
 
 	MultipleScanExclusiveAdd(deviceIdx, predicate, addresses, multiple_size);
 
