@@ -293,9 +293,6 @@ THE SOFTWARE.
     int groupSize = get_local_size(0);\
 	int view_id   = get_global_id(1);\
 	int workload_shift = view_id * numElems;\
-	if(view_id != 0){ \
-		return;\
-	}\
 	__global type##4 const* in_array = multiple_in_array + workload_shift;\
 	__global type##4* out_array = multiple_out_array + workload_shift;\
 	__global type* out_sums = multiple_out_sums + view_id * partBoundarySize;\

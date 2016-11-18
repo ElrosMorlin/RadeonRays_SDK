@@ -496,7 +496,7 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	auto devicePartSumsBottomLevel = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN * multiple_size);
 	auto devicePartSumsMidLevel = GetTempIntBuffer(NUM_GROUPS_MID_LEVEL_SCAN * multiple_size);
 
-	CLWKernel bottomLevelScan = program_.GetKernel("multiple_scan_exclusive_part_int4");
+	CLWKernel bottomLevelScan = program_.GetKernel("scan_exclusive_part_int4");
 	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
 	CLWKernel distributeSums = program_.GetKernel("multiple_distribute_part_sum_int4");
 
@@ -510,17 +510,19 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	bottomLevelScan.SetArg(1, output);
 	bottomLevelScan.SetArg(2, numElems);
 	bottomLevelScan.SetArg(3, devicePartSumsBottomLevel);
-	bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
-	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
+	//bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
+	bottomLevelScan.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
+	context_.Launch1D(0, NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan);
+	//context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
 
 	bottomLevelScan.SetArg(0, devicePartSumsBottomLevel);
 	bottomLevelScan.SetArg(1, devicePartSumsBottomLevel);
 	bottomLevelScan.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	bottomLevelScan.SetArg(3, devicePartSumsMidLevel);
-	bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
-	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch2D(0, gs_mid, ls, bottomLevelScan);
+	//bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
+	bottomLevelScan.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
+	context_.Launch1D(0, NUM_GROUPS_MID_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan);
+	//context_.Launch2D(0, gs_mid, ls, bottomLevelScan);
 
 	topLevelScan.SetArg(0, devicePartSumsMidLevel);
 	topLevelScan.SetArg(1, devicePartSumsMidLevel);
