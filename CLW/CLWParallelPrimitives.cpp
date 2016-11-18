@@ -162,7 +162,8 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddTwoLevel(unsigned int de
 	
 	size_t gs_btm[] = { NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE,multiple_size };
 	size_t gs_top[] = { NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE,multiple_size };
-	
+	size_t gs_dis[] = { NUM_GROUPS_BOTTOM_LEVEL_DISTRIBUTE * WG_SIZE, multiple_size };
+
 	context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
 
 	topLevelScan.SetArg(0, devicePartSums);
@@ -174,10 +175,11 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddTwoLevel(unsigned int de
 	distributeSums.SetArg(0, devicePartSums);
 	distributeSums.SetArg(1, output);
 	distributeSums.SetArg(2, (cl_uint)numElems);
+	distributeSums.SetArg(3, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 
 	ReclaimTempIntBuffer(devicePartSums);
 
-	return context_.Launch1D(0, NUM_GROUPS_BOTTOM_LEVEL_DISTRIBUTE * WG_SIZE, WG_SIZE, distributeSums);
+	return context_.Launch2D(0, gs_dis, ls, distributeSums);
 }
 
 
@@ -498,7 +500,7 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 
 	CLWKernel bottomLevelScan = program_.GetKernel("scan_exclusive_part_int4");
 	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
-	CLWKernel distributeSums = program_.GetKernel("multiple_distribute_part_sum_int4");
+	CLWKernel distributeSums = program_.GetKernel("distribute_part_sum_int4");
 
 	size_t ls[] = { WG_SIZE, 1 };
 	size_t gs_btm[] = { NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE,multiple_size };

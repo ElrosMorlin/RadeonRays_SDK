@@ -343,10 +343,13 @@ THE SOFTWARE.
 
 // COVART: Multiple
 #define DEFINE_MULTIPLE_DISTRIBUTE_PART_SUM_4(type)\
-    __kernel void multiple_distribute_part_sum_##type##4( __global type* in_sums, __global type##4* inout_array, uint numElems)\
+    __kernel void multiple_distribute_part_sum_##type##4( __global type* multiple_in_sums, __global type##4* multiple_inout_array, uint numElems, uint partBoundarySize)\
 {\
     int globalId  = get_global_id(0);\
     int groupId   = get_group_id(0);\
+	int view_id   = get_global_id(1);\
+	__global type* in_sums = multiple_in_sums + view_id * partBoundarySize;\
+	__global type##4* inout_array = multiple_inout_array + view_id * numElems;\
     type##4 v1 = safe_load_##type##4(inout_array, globalId, numElems);\
     type    sum = in_sums[groupId >> 1];\
     v1.xyzw += sum;\
