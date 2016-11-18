@@ -75,7 +75,7 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddWG(unsigned int deviceId
 {
 	cl_uint numElems = (cl_uint)input.GetElementCount() / multiple_size;
 
-	CLWKernel topLevelScan = program_.GetKernel("scan_exclusive_int4");
+	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
 
 	topLevelScan.SetArg(0, input);
 	topLevelScan.SetArg(1, output);
@@ -143,9 +143,9 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddTwoLevel(unsigned int de
 	auto devicePartSums = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	//context_.CreateBuffer<cl_int>(NUM_GROUPS_BOTTOM_LEVEL);
 
-	CLWKernel bottomLevelScan = program_.GetKernel("scan_exclusive_part_int4");
-	CLWKernel topLevelScan = program_.GetKernel("scan_exclusive_int4");
-	CLWKernel distributeSums = program_.GetKernel("distribute_part_sum_int4");
+	CLWKernel bottomLevelScan = program_.GetKernel("multiple_scan_exclusive_part_int4");
+	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
+	CLWKernel distributeSums = program_.GetKernel("multiple_distribute_part_sum_int4");
 
 	bottomLevelScan.SetArg(0, input);
 	bottomLevelScan.SetArg(1, output);
@@ -485,8 +485,8 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	auto devicePartSumsBottomLevel = GetTempIntBuffer(NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	auto devicePartSumsMidLevel = GetTempIntBuffer(NUM_GROUPS_MID_LEVEL_SCAN);
 
-	CLWKernel bottomLevelScan = program_.GetKernel("scan_exclusive_part_int4");
-	CLWKernel topLevelScan = program_.GetKernel("scan_exclusive_int4");
+	CLWKernel bottomLevelScan = program_.GetKernel("multiple_scan_exclusive_part_int4");
+	CLWKernel topLevelScan = program_.GetKernel("multiple_scan_exclusive_int4");
 	CLWKernel distributeSums = program_.GetKernel("distribute_part_sum_int4");
 
 	bottomLevelScan.SetArg(0, input);
@@ -1122,7 +1122,7 @@ CLWEvent CLWParallelPrimitives::MultipleCompact(unsigned int deviceIdx, CLWBuffe
 
 	int NUM_BLOCKS = (int)((numElems + WG_SIZE - 1) / WG_SIZE);
 
-	CLWKernel compactKernel = program_.GetKernel("compact_int_1");
+	CLWKernel compactKernel = program_.GetKernel("multiple_compact_int_1");
 
 	compactKernel.SetArg(0, predicate);
 	compactKernel.SetArg(1, addresses);

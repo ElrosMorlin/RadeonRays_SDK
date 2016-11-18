@@ -335,9 +335,15 @@ namespace Baikal
 
 			
 			// Intersect ray batch
-			//Event* e = nullptr;
-			api->MultipleQueryIntersection(m_multiple_render_data->fr_rays[pass & 0x1], m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_intersections, nullptr, nullptr);
-			//e->Wait();
+			auto time = std::chrono::high_resolution_clock::now();
+			
+			Event* e = nullptr;
+			api->MultipleQueryIntersection(m_multiple_render_data->fr_rays[pass & 0x1], m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_intersections, nullptr, &e);
+			e->Wait();
+			auto  end_time  = std::chrono::high_resolution_clock::now();
+			auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - time);
+			std::cout << "Intersection Time:" << dt.count() << std::endl;
+
 			//m_api->DeleteEvent(e);
 			
 			// Apply scattering
@@ -593,8 +599,11 @@ namespace Baikal
 	void PtRenderer::MultipleGeneratePrimaryRays(ClwScene& scene)
 	{
 		// Fetch kernel
-		std::string kernel_name = (scene.camera_type == CameraType::kDefault) ? "PerspectiveCamera_GenerateMultiplePaths" : "PerspectiveCamera_GenerateMultiplePaths";
-		//TODO: pending function: PerspectiveCameraDof_GenerateMultiplePaths
+		//TODO: pending function
+		//std::string kernel_name = (scene.camera_type == CameraType::kDefault) ? "PerspectiveCamera_GenerateMultiplePaths" : "PerspectiveCameraDof_GenerateMultiplePaths";
+		
+		std::string kernel_name = "PerspectiveCamera_GenerateMultiplePaths";
+
 
 		CLWKernel genkernel = m_multiple_render_data->program.GetKernel(kernel_name);
 
@@ -614,7 +623,6 @@ namespace Baikal
 		{
 			size_t gs[] = { static_cast<size_t>((m_multiple_output->width() + 7) / 8 * 8), static_cast<size_t>((m_multiple_output->height() + 7) / 8 * 8), MULTIPLE_VIEW_SIZE };
 			size_t ls[] = { 8, 8, 1 };
-
 			auto evt = m_context.Launch3D(0, gs, ls, genkernel);
 			evt.Wait();
 			std::cout << "Generating Time:" << evt.GetDuration() << "ms" << std::endl;

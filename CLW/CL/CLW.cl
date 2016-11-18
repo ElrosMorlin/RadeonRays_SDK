@@ -197,6 +197,33 @@ THE SOFTWARE.
     safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
 
+// COVART: Multiple version
+#define DEFINE_MULTIPLE_SCAN_EXCLUSIVE_4(type)\
+    __kernel void multiple_scan_exclusive_##type##4(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __local type* shmem)\
+{\
+    int globalId  = get_global_id(0);\
+    int localId   = get_local_id(0);\
+    int groupSize = get_local_size(0);\
+    type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
+    type##4 v2 = safe_load_##type##4(in_array, 2*globalId + 1, numElems);\
+    v1.y += v1.x; v1.w += v1.z; v1.w += v1.y;\
+    v2.y += v2.x; v2.w += v2.z; v2.w += v2.y;\
+    v2.w += v1.w;\
+    shmem[localId] = v2.w;\
+    barrier(CLK_LOCAL_MEM_FENCE);\
+    group_scan_exclusive_##type(localId, groupSize, shmem);\
+    v2.w = shmem[localId];\
+    type t = v1.w; v1.w = v2.w; v2.w += t;\
+    t = v1.y; v1.y = v1.w; v1.w += t;\
+    t = v2.y; v2.y = v2.w; v2.w += t;\
+    t = v1.x; v1.x = v1.y; v1.y += t;\
+    t = v2.x; v2.x = v2.y; v2.y += t;\
+    t = v1.z; v1.z = v1.w; v1.w += t;\
+    t = v2.z; v2.z = v2.w; v2.w += t;\
+    safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
+    safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
+}
+
 #define DEFINE_SCAN_EXCLUSIVE_4_V1(type)\
     __attribute__((reqd_work_group_size(64, 1, 1)))\
     __kernel void scan_exclusive_##type##4##_v1(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __local type* shmem)\
@@ -251,6 +278,36 @@ THE SOFTWARE.
     safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
 
+
+// COVART: multiple
+#define DEFINE_MULTIPLE_SCAN_EXCLUSIVE_PART_4(type)\
+    __kernel void multiple_scan_exclusive_part_##type##4(__global type##4 const* in_array, __global type##4* out_array, uint numElems, __global type* out_sums, __local type* shmem)\
+{\
+    int globalId  = get_global_id(0);\
+    int localId   = get_local_id(0);\
+    int groupId   = get_group_id(0);\
+    int groupSize = get_local_size(0);\
+    type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
+    type##4 v2 = safe_load_##type##4(in_array, 2*globalId + 1, numElems);\
+    v1.y += v1.x; v1.w += v1.z; v1.w += v1.y;\
+    v2.y += v2.x; v2.w += v2.z; v2.w += v2.y;\
+    v2.w += v1.w;\
+    shmem[localId] = v2.w;\
+    barrier(CLK_LOCAL_MEM_FENCE);\
+    type sum = group_scan_exclusive_part_##type(localId, groupSize, shmem);\
+    if (localId == 0) out_sums[groupId] = sum;\
+    v2.w = shmem[localId];\
+    type t = v1.w; v1.w = v2.w; v2.w += t;\
+    t = v1.y; v1.y = v1.w; v1.w += t;\
+    t = v2.y; v2.y = v2.w; v2.w += t;\
+    t = v1.x; v1.x = v1.y; v1.y += t;\
+    t = v2.x; v2.x = v2.y; v2.y += t;\
+    t = v1.z; v1.z = v1.w; v1.w += t;\
+    t = v2.z; v2.z = v2.w; v2.w += t;\
+    safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
+    safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
+}
+
 #define DEFINE_GROUP_REDUCE(type)\
     void group_reduce_##type(int localId, int groupSize, __local type* shmem)\
 {\
@@ -266,6 +323,18 @@ THE SOFTWARE.
 
 #define DEFINE_DISTRIBUTE_PART_SUM_4(type)\
     __kernel void distribute_part_sum_##type##4( __global type* in_sums, __global type##4* inout_array, uint numElems)\
+{\
+    int globalId  = get_global_id(0);\
+    int groupId   = get_group_id(0);\
+    type##4 v1 = safe_load_##type##4(inout_array, globalId, numElems);\
+    type    sum = in_sums[groupId >> 1];\
+    v1.xyzw += sum;\
+    safe_store_##type##4(v1, inout_array, globalId, numElems);\
+}
+
+// COVART: Multiple
+#define DEFINE_MULTIPLE_DISTRIBUTE_PART_SUM_4(type)\
+    __kernel void multiple_distribute_part_sum_##type##4( __global type* in_sums, __global type##4* inout_array, uint numElems)\
 {\
     int globalId  = get_global_id(0);\
     int groupId   = get_group_id(0);\
@@ -304,11 +373,23 @@ DEFINE_SCAN_EXCLUSIVE(float)
 DEFINE_SCAN_EXCLUSIVE_4(int)
 DEFINE_SCAN_EXCLUSIVE_4(float)
 
+// COVART
+DEFINE_MULTIPLE_SCAN_EXCLUSIVE_4(int)
+DEFINE_MULTIPLE_SCAN_EXCLUSIVE_4(float)
+
 DEFINE_SCAN_EXCLUSIVE_PART_4(int)
 DEFINE_SCAN_EXCLUSIVE_PART_4(float)
 
+// COVART
+DEFINE_MULTIPLE_SCAN_EXCLUSIVE_PART_4(int)
+DEFINE_MULTIPLE_SCAN_EXCLUSIVE_PART_4(float)
+
 DEFINE_DISTRIBUTE_PART_SUM_4(int)
 DEFINE_DISTRIBUTE_PART_SUM_4(float)
+
+// COVART
+DEFINE_MULTIPLE_DISTRIBUTE_PART_SUM_4(int)
+DEFINE_MULTIPLE_DISTRIBUTE_PART_SUM_4(float)
 
 /// Specific function for radix-sort needs
 /// Group exclusive add multiscan on 4 arrays of shorts in parallel
@@ -1074,6 +1155,29 @@ __kernel void compact_int_1(__global int* in_predicate, __global int* in_address
     {
         *out_size = in_address[in_size - 1] + in_predicate[in_size - 1];
     }
+}
+
+// COVART: Multiple
+__kernel void multiple_compact_int_1(__global int* in_predicate, __global int* in_address,
+	__global int* in_input, uint in_size,
+	__global int* out_output,
+	__global int* out_size)
+{
+	int global_id = get_global_id(0);
+	int group_id = get_group_id(0);
+
+	if (global_id < in_size)
+	{
+		if (in_predicate[global_id])
+		{
+			out_output[in_address[global_id]] = in_input[global_id];
+		}
+	}
+
+	if (global_id == 0)
+	{
+		*out_size = in_address[in_size - 1] + in_predicate[in_size - 1];
+	}
 }
 
 __kernel void copy(__global int4* in_input,
