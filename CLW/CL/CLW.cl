@@ -224,6 +224,7 @@ THE SOFTWARE.
     t = v2.x; v2.x = v2.y; v2.y += t;\
     t = v1.z; v1.z = v1.w; v1.w += t;\
     t = v2.z; v2.z = v2.w; v2.w += t;\
+	if(view_id != 0){return;}\
     safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
     safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
@@ -313,8 +314,9 @@ THE SOFTWARE.
     t = v2.x; v2.x = v2.y; v2.y += t;\
     t = v1.z; v1.z = v1.w; v1.w += t;\
     t = v2.z; v2.z = v2.w; v2.w += t;\
-    safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
-    safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
+	if(view_id != 0){return;}\
+	safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
+	safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
 
 #define DEFINE_GROUP_REDUCE(type)\
@@ -353,6 +355,7 @@ THE SOFTWARE.
     type##4 v1 = safe_load_##type##4(inout_array, globalId, numElems);\
     type    sum = in_sums[groupId >> 1];\
     v1.xyzw += sum;\
+	if(view_id != 0){return;}\
     safe_store_##type##4(v1, inout_array, globalId, numElems);\
 }
 
@@ -1170,14 +1173,22 @@ __kernel void compact_int_1(__global int* in_predicate, __global int* in_address
 }
 
 // COVART: Multiple
-__kernel void multiple_compact_int_1(__global int* in_predicate, __global int* in_address,
-	__global int* in_input, uint in_size,
-	__global int* out_output,
-	__global int* out_size)
+__kernel void multiple_compact_int_1(__global int* multiple_in_predicate, __global int* multiple_in_address,
+	__global int* multiple_in_input, uint in_size,
+	__global int* multiple_out_output,
+	__global int* multiple_out_size)
 {
 	int global_id = get_global_id(0);
 	int group_id = get_group_id(0);
-
+	int view_id = get_global_id(1);
+	int workload_shift = view_id * in_size;
+	
+	__global int* in_predicate = multiple_in_predicate + workload_shift;
+	__global int* in_address = multiple_in_address + workload_shift;
+	__global int* in_input = multiple_in_input + workload_shift;
+	__global int* out_output = multiple_out_output + workload_shift;
+	__global int* out_size = multiple_out_size + view_id;
+	if (view_id != 0) { return; }
 	if (global_id < in_size)
 	{
 		if (in_predicate[global_id])

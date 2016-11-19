@@ -326,9 +326,12 @@ namespace Baikal
 		m_context.CopyBuffer(0, m_multiple_render_data->iota, m_multiple_render_data->pixelindices[1], 0, 0, m_multiple_render_data->iota.GetElementCount());
 		m_context.FillBuffer(0, m_multiple_render_data->hitcount, maxrays, MULTIPLE_VIEW_SIZE);
 		
+		
+
 		// Initialize first pass
 		for (int pass = 0; pass < m_num_bounces; ++pass)
 		{
+			std::cout << "Pass:"  << pass << std::endl;
 			// Clear ray hits buffer
 			// COVART: clear that of multi-view
 			m_context.FillBuffer(0, m_multiple_render_data->hits, 0, m_multiple_render_data->hits.GetElementCount());
@@ -337,6 +340,7 @@ namespace Baikal
 			// Intersect ray batch
 			auto time = std::chrono::high_resolution_clock::now();
 			
+			std::cout << "Intersecting" << std::endl;
 			Event* e = nullptr;
 			api->MultipleQueryIntersection(m_multiple_render_data->fr_rays[pass & 0x1], m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_intersections, nullptr, &e);
 			e->Wait();
@@ -346,6 +350,7 @@ namespace Baikal
 
 			//m_api->DeleteEvent(e);
 			
+			std::cout << "Evaling" << std::endl;
 			// Apply scattering
 			MultipleEvaluateVolume(clwscene, pass);
 			
@@ -355,23 +360,24 @@ namespace Baikal
 			}
 			
 			// Convert intersections to predicates
+			std::cout << "Filtering" << std::endl;
 			MultipleFilterPathStream(pass);
 
 			// Compact batch
 			// COVART: do that for multiple version
 			// TODO: the function only do for first data
-			
+			std::cout << "Compacting" << std::endl;
 			m_multiple_render_data->pp[0].MultipleCompact(0, m_multiple_render_data->hits, m_multiple_render_data->iota, m_multiple_render_data->compacted_indices, m_multiple_render_data->hitcount, MULTIPLE_VIEW_SIZE);
-
 			
-			
-
+			std::cout << "Restoring" << std::endl;
 			// Advance indices to keep pixel indices up to date
 			MultipleRestorePixelIndices(pass);
 
+			std::cout << "Shade volume" << std::endl;
 			// Shade hits
 			MultipleShadeVolume(clwscene, pass);
 
+			std::cout << "Shade surface" << std::endl;
 			// Shade hits
 			MultipleShadeSurface(clwscene, pass);
 
@@ -379,16 +385,20 @@ namespace Baikal
 			if (pass == 0)
 				MultipleShadeMiss(clwscene, pass);
 
+			std::cout << "Occlusion" << std::endl;
 			// Intersect shadow rays
 			api->MultipleQueryOcclusion(m_multiple_render_data->fr_shadowrays, m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_shadowhits, nullptr, nullptr);
 			//e->Wait();
 			//m_api->DeleteEvent(e);
 
+			std::cout << "Gathering" << std::endl;
 			// Gather light samples and account for visibility
 			MultipleGatherLightSamples(clwscene, pass);
 			//
 			m_context.Flush(0);
 		}
+		
+		std::cout << "Update Done!" << std::endl;
 	}
 
     void PtRenderer::SetOutput(Output* output)

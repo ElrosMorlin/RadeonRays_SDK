@@ -848,6 +848,7 @@ void UpdateFrameMultiple(bool clear = false) {
 		}
 	}
 	*/
+	std::cout << "Getting Data from GPU" << std::endl;
 	g_multiple_outputs[g_primary].output->GetData(&g_multiple_outputs[g_primary].fdata[0]);
 	float gamma = 2.2f;
 	// TODO: we don't need char data
@@ -952,7 +953,8 @@ void ExtractSingleFrameMultipleView(const std::string& filename_prefix = "") {
 		for (int i = 0;i < sample_frame;i++) {
 			UpdateFrameMultiple(i == 0); // clear screen buffer for first render
 		}
-		std::cout << *g_scene->camera_ << std::endl;
+		std::cout << "Preparing to write result" << std::endl;
+		
 		std::ostringstream oss;
 		oss << filename_prefix << "_frame_num_" << sample_frame << "_";
 		SaveMultipleFrameBuffer(oss.str(), &g_multiple_outputs[g_primary].fdata[0]);
