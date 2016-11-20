@@ -503,9 +503,9 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	CLWKernel distributeSums = program_.GetKernel("multiple_distribute_part_sum_int4");
 
 	size_t ls[] = { WG_SIZE, 1 };
-	size_t gs_btm[] = { NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE,multiple_size };
-	size_t gs_mid[] = { NUM_GROUPS_MID_LEVEL_SCAN * WG_SIZE,multiple_size };
-	size_t gs_top[] = { NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE,multiple_size };
+	size_t gs_btm[] = { NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE, multiple_size };
+	size_t gs_mid[] = { NUM_GROUPS_MID_LEVEL_SCAN * WG_SIZE, multiple_size };
+	size_t gs_top[] = { NUM_GROUPS_TOP_LEVEL_SCAN * WG_SIZE, multiple_size };
 	size_t gs_mid_dis[] = { NUM_GROUPS_MID_LEVEL_DISTRIBUTE *  WG_SIZE , multiple_size };
 	size_t gs_btm_dis[] = { NUM_GROUPS_BOTTOM_LEVEL_DISTRIBUTE *  WG_SIZE , multiple_size };
 
@@ -517,12 +517,11 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
 	context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
 
-
 	bottomLevelScan.SetArg(0, devicePartSumsBottomLevel);
 	bottomLevelScan.SetArg(1, devicePartSumsBottomLevel);
 	bottomLevelScan.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	bottomLevelScan.SetArg(3, devicePartSumsMidLevel);
-	bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
+	bottomLevelScan.SetArg(4, (cl_uint)(NUM_GROUPS_MID_LEVEL_SCAN));
 	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
 	context_.Launch2D(0, gs_mid, ls, bottomLevelScan);
 
@@ -533,11 +532,13 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	topLevelScan.SetArg(3, SharedMemory(WG_SIZE * sizeof(cl_int)));
 	context_.Launch2D(0, gs_top, ls, topLevelScan);
 
+
 	distributeSums.SetArg(0, devicePartSumsMidLevel);
 	distributeSums.SetArg(1, devicePartSumsBottomLevel);
 	distributeSums.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
 	distributeSums.SetArg(3, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
 	context_.Launch2D(0, gs_mid_dis, ls, distributeSums);
+
 
 	distributeSums.SetArg(0, devicePartSumsBottomLevel);
 	distributeSums.SetArg(1, output);
@@ -1137,6 +1138,34 @@ CLWEvent CLWParallelPrimitives::Compact(unsigned int deviceIdx, CLWBuffer<cl_int
 }
 
 
+
+template <class T>
+bool CLWParallelPrimitives::CompareBufferData(CLWBuffer<T> buffer_cl, int idx_a, int idx_b) {
+	size_t buffer_sz = buffer_cl.GetElementCount();
+	size_t batch_size = buffer_sz / MULTIPLE_VIEW_SIZE;
+	T* buffer_cpu = new T[buffer_sz];
+
+	int offset_a = idx_a * batch_size;
+	int offset_b = idx_b * batch_size;
+
+	context_.ReadBuffer(0, buffer_cl, buffer_cpu, buffer_sz).Wait();
+
+	bool result = true;
+	for (int i = 0;i < batch_size;i++) {
+		//std::cout << buffer_cpu[offset_a + i] << " " << buffer_cpu[offset_b + i] << std::endl;
+		if (buffer_cpu[offset_a + i] != buffer_cpu[offset_b + i]) {
+			result = false;
+			std::cout << "[CMP] differ at " << i << std::endl;
+			break;
+		}
+	}
+
+	delete[] buffer_cpu;
+	return result;
+}
+
+
+
 CLWEvent CLWParallelPrimitives::MultipleCompact(unsigned int deviceIdx, CLWBuffer<cl_int> predicate, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output, CLWBuffer<cl_int> newSize, int multiple_size)
 {
 	/// Scan predicate array first to temp buffer
@@ -1153,6 +1182,7 @@ CLWEvent CLWParallelPrimitives::MultipleCompact(unsigned int deviceIdx, CLWBuffe
 	MultipleScanExclusiveAdd(deviceIdx, predicate, addresses, multiple_size);
 	int NUM_BLOCKS = (int)((numElems + WG_SIZE - 1) / WG_SIZE);
 	
+
 	CLWKernel compactKernel = program_.GetKernel("multiple_compact_int_1");
 
 	compactKernel.SetArg(0, predicate);

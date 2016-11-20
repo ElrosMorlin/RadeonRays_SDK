@@ -27,6 +27,19 @@ THE SOFTWARE.
 #include "CLWEvent.h"
 #include "CLWBuffer.h"
 
+#define COMPARE_CL_BUFFER(buffer, idx_a, idx_b) \
+{\
+	std::cout << "Comparing:" << #buffer ;\
+	if (!CompareBufferData(buffer, idx_a, idx_b)) {\
+		std::cout << " --> Differ!" << std::endl;\
+	}\
+	else {\
+		std::cout << " --> Same!" << std::endl;\
+	}\
+}
+#define MULTIPLE_VIEW_SIZE 9
+
+
 class CLWParallelPrimitives
 {
 public:
@@ -60,6 +73,11 @@ public:
     CLWEvent Copy(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
 
     void ReclaimDeviceMemory();
+
+	// COVART
+	template <class T>
+	bool CompareBufferData(CLWBuffer<T> buffer, int idx_a, int idx_b);
+
 
 protected:
     CLWEvent ScanExclusiveAddWG(unsigned int deviceIdx, CLWBuffer<cl_int> input, CLWBuffer<cl_int> output);
