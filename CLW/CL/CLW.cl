@@ -24,6 +24,8 @@ THE SOFTWARE.
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 
 
+#define ELEMENT_DIVIDE 4
+
 // --------------------- HELPERS ------------------------
 //#define INT_MAX 0x7FFFFFFF
 
@@ -205,7 +207,7 @@ THE SOFTWARE.
     int localId   = get_local_id(0);\
     int groupSize = get_local_size(0);\
 	int view_id   = get_global_id(1);\
-	int workload_shift = view_id * numElems / 4;\
+	int workload_shift = view_id * numElems / ELEMENT_DIVIDE;\
 	__global type##4 const* in_array = multiple_in_array + workload_shift;\
 	__global type##4* out_array = multiple_out_array + workload_shift;\
     type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
@@ -292,7 +294,7 @@ THE SOFTWARE.
     int groupId   = get_group_id(0);\
     int groupSize = get_local_size(0);\
 	int view_id   = get_global_id(1);\
-	int workload_shift = view_id * numElems / 4;\
+	int workload_shift = view_id * numElems / ELEMENT_DIVIDE;\
 	__global type##4 const* in_array = multiple_in_array + workload_shift;\
 	__global type##4* out_array = multiple_out_array + workload_shift;\
 	__global type* out_sums = multiple_out_sums + view_id * partBoundarySize;\
@@ -349,7 +351,7 @@ THE SOFTWARE.
     int groupId   = get_group_id(0);\
 	int view_id   = get_global_id(1);\
 	__global type* in_sums = multiple_in_sums + view_id * partBoundarySize;\
-	__global type##4* inout_array = multiple_inout_array + view_id * numElems / 4;\
+	__global type##4* inout_array = multiple_inout_array + view_id * numElems / ELEMENT_DIVIDE;\
     type##4 v1 = safe_load_##type##4(inout_array, globalId, numElems);\
     type    sum = in_sums[groupId >> 1];\
     v1.xyzw += sum;\

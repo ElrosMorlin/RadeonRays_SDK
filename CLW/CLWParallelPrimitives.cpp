@@ -1151,17 +1151,6 @@ CLWEvent CLWParallelPrimitives::MultipleCompact(unsigned int deviceIdx, CLWBuffe
 	
 
 	MultipleScanExclusiveAdd(deviceIdx, predicate, addresses, multiple_size);
-	/*
-	std::cout << "DEBUG: Clearing buffer" << std::endl;
-	auto* zero_buffer = new cl_int[numTotalElems]{ 0 };
-	
-	
-	context_.WriteBuffer(0, addresses, zero_buffer, numElems, numElems * (multiple_size - 3)).Wait();
-	std::cout << "DEBUG: Clearing buffer Done" << std::endl;
-
-	delete[] zero_buffer;
-	*/
-
 	int NUM_BLOCKS = (int)((numElems + WG_SIZE - 1) / WG_SIZE);
 	
 	CLWKernel compactKernel = program_.GetKernel("multiple_compact_int_1");
