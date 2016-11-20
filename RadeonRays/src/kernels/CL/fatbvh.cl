@@ -40,22 +40,22 @@ TYPE DEFINITIONS
 
 typedef struct
 {
-    bbox lbound;
-    bbox rbound;
+	bbox lbound;
+	bbox rbound;
 } FatBvhNode;
 
 typedef struct
 {
-    // BVH structure
-    __global FatBvhNode const*     nodes;
-    // Scene positional data
-    __global float3 const*         vertices;
-    // Scene indices
-    __global Face const*         faces;
-    // Shape IDs
-    __global ShapeData const*     shapes;
-    // Extra data
-    __global int const*             extra;
+	// BVH structure
+	__global FatBvhNode const*     nodes;
+	// Scene positional data
+	__global float3 const*         vertices;
+	// Scene indices
+	__global Face const*         faces;
+	// Shape IDs
+	__global ShapeData const*     shapes;
+	// Extra data
+	__global int const*             extra;
 } SceneData;
 
 /*************************************************************************
@@ -69,254 +69,254 @@ BVH FUNCTIONS
 **************************************************************************/
 //  intersect a ray with leaf BVH node
 void IntersectLeafClosest(
-    SceneData const* scenedata,
-    int faceidx,
-    ray const* r,                // ray to instersect
-    Intersection* isect          // Intersection structure
-    )
+	SceneData const* scenedata,
+	int faceidx,
+	ray const* r,                // ray to instersect
+	Intersection* isect          // Intersection structure
+)
 {
-    float3 v1, v2, v3;
-    Face face;
+	float3 v1, v2, v3;
+	Face face;
 
-    face = scenedata->faces[faceidx];
-    v1 = scenedata->vertices[face.idx[0]];
-    v2 = scenedata->vertices[face.idx[1]];
-    v3 = scenedata->vertices[face.idx[2]];
+	face = scenedata->faces[faceidx];
+	v1 = scenedata->vertices[face.idx[0]];
+	v2 = scenedata->vertices[face.idx[1]];
+	v3 = scenedata->vertices[face.idx[2]];
 
 #ifdef RR_RAY_MASK
-    int shapemask = scenedata->shapes[face.shapeidx].mask;
+	int shapemask = scenedata->shapes[face.shapeidx].mask;
 
-    if (Ray_GetMask(r) & shapemask)
+	if (Ray_GetMask(r) & shapemask)
 #endif
-    {
-        if (IntersectTriangle(r, v1, v2, v3, isect))
-        {
-            isect->primid = face.id;
-            isect->shapeid = scenedata->shapes[face.shapeidx].id;
-        }
-    }
+	{
+		if (IntersectTriangle(r, v1, v2, v3, isect))
+		{
+			isect->primid = face.id;
+			isect->shapeid = scenedata->shapes[face.shapeidx].id;
+		}
+	}
 }
 
 //  intersect a ray with leaf BVH node
 bool IntersectLeafAny(
-    SceneData const* scenedata,
-    int faceidx,
-    ray const* r                      // ray to instersect
-    )
+	SceneData const* scenedata,
+	int faceidx,
+	ray const* r                      // ray to instersect
+)
 {
-    float3 v1, v2, v3;
-    Face face;
+	float3 v1, v2, v3;
+	Face face;
 
-    face = scenedata->faces[faceidx];
-    v1 = scenedata->vertices[face.idx[0]];
-    v2 = scenedata->vertices[face.idx[1]];
-    v3 = scenedata->vertices[face.idx[2]];
+	face = scenedata->faces[faceidx];
+	v1 = scenedata->vertices[face.idx[0]];
+	v2 = scenedata->vertices[face.idx[1]];
+	v3 = scenedata->vertices[face.idx[2]];
 
 #ifdef RR_RAY_MASK
-    int shapemask = scenedata->shapes[face.shapeidx].mask;
+	int shapemask = scenedata->shapes[face.shapeidx].mask;
 
-    if (Ray_GetMask(r) & shapemask)
+	if (Ray_GetMask(r) & shapemask)
 #endif
-    {
-        if (IntersectTriangleP(r, v1, v2, v3))
-        {
-            return true;
-        }
-    }
+	{
+		if (IntersectTriangleP(r, v1, v2, v3))
+		{
+			return true;
+		}
+	}
 
-    return false;
+	return false;
 }
 
 #ifndef GLOBAL_STACK
 // intersect Ray against the whole BVH structure
 bool IntersectSceneClosest(SceneData const* scenedata, ray const* r, Intersection* isect, __global int* stack, __local int* ldsstack)
 {
-    const float3 invdir = native_recip(r->d.xyz);
+	const float3 invdir = native_recip(r->d.xyz);
 
-    isect->uvwt = make_float4(0.f, 0.f, 0.f, r->o.w);
-    isect->shapeid = -1;
-    isect->primid = -1;
+	isect->uvwt = make_float4(0.f, 0.f, 0.f, r->o.w);
+	isect->shapeid = -1;
+	isect->primid = -1;
 
-    if (r->o.w < 0.f)
-        return false;
+	if (r->o.w < 0.f)
+		return false;
 
-    __global int* gsptr = stack;
-    __local  int* lsptr = ldsstack;
+	__global int* gsptr = stack;
+	__local  int* lsptr = ldsstack;
 
-    *lsptr = -1;
-    lsptr += 64;
+	*lsptr = -1;
+	lsptr += 64;
 
-    int idx = 0;
-    FatBvhNode node;
+	int idx = 0;
+	FatBvhNode node;
 
-    bool leftleaf = false;
-    bool rightleaf = false;
-    float lefthit = 0.f;
-    float righthit = 0.f;
-    int step = 0;
+	bool leftleaf = false;
+	bool rightleaf = false;
+	float lefthit = 0.f;
+	float righthit = 0.f;
+	int step = 0;
 
-    while (idx > -1)
-    {
-        while (idx > -1)
-        {
-            node = scenedata->nodes[idx];
+	while (idx > -1)
+	{
+		while (idx > -1)
+		{
+			node = scenedata->nodes[idx];
 
-            leftleaf = LEAFNODE(node.lbound);
-            rightleaf = LEAFNODE(node.rbound);
+			leftleaf = LEAFNODE(node.lbound);
+			rightleaf = LEAFNODE(node.rbound);
 
-            lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, isect->uvwt.w);
-            righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, isect->uvwt.w);
+			lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, isect->uvwt.w);
+			righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, isect->uvwt.w);
 
-            if (leftleaf)
-            {
-                IntersectLeafClosest(scenedata, STARTIDX(node.lbound), r, isect);
-            }
+			if (leftleaf)
+			{
+				IntersectLeafClosest(scenedata, STARTIDX(node.lbound), r, isect);
+			}
 
-            if (rightleaf)
-            {
-                IntersectLeafClosest(scenedata, STARTIDX(node.rbound), r, isect);
-            }
+			if (rightleaf)
+			{
+				IntersectLeafClosest(scenedata, STARTIDX(node.rbound), r, isect);
+			}
 
-            if (lefthit > 0.f && righthit > 0.f)
-            {
-                int deferred = -1;
-                if (lefthit > righthit)
-                {
-                    idx = (int)node.rbound.pmax.w;
-                    deferred = (int)node.lbound.pmax.w;;
-                }
-                else
-                {
-                    idx = (int)node.lbound.pmax.w;
-                    deferred = (int)node.rbound.pmax.w;
-                }
+			if (lefthit > 0.f && righthit > 0.f)
+			{
+				int deferred = -1;
+				if (lefthit > righthit)
+				{
+					idx = (int)node.rbound.pmax.w;
+					deferred = (int)node.lbound.pmax.w;;
+				}
+				else
+				{
+					idx = (int)node.lbound.pmax.w;
+					deferred = (int)node.rbound.pmax.w;
+				}
 
-                if (lsptr - ldsstack >= SHORT_STACK_SIZE * 64)
-                {
-                    for (int i = 1; i < SHORT_STACK_SIZE; ++i)
-                    {
-                        gsptr[i] = ldsstack[i * 64];
-                    }
+				if (lsptr - ldsstack >= SHORT_STACK_SIZE * 64)
+				{
+					for (int i = 1; i < SHORT_STACK_SIZE; ++i)
+					{
+						gsptr[i] = ldsstack[i * 64];
+					}
 
-                    gsptr += SHORT_STACK_SIZE;
-                    lsptr = ldsstack + 64;
-                }
+					gsptr += SHORT_STACK_SIZE;
+					lsptr = ldsstack + 64;
+				}
 
-                *lsptr = deferred;
-                lsptr += 64;
+				*lsptr = deferred;
+				lsptr += 64;
 
-                continue;
-            }
-            else if (lefthit > 0)
-            {
-                idx = (int)node.lbound.pmax.w;
-                continue;
-            }
-            else if (righthit > 0)
-            {
-                idx = (int)node.rbound.pmax.w;
-                continue;
-            }
+				continue;
+			}
+			else if (lefthit > 0)
+			{
+				idx = (int)node.lbound.pmax.w;
+				continue;
+			}
+			else if (righthit > 0)
+			{
+				idx = (int)node.rbound.pmax.w;
+				continue;
+			}
 
-            lsptr -= 64;
-            idx = *(lsptr);
-        }
+			lsptr -= 64;
+			idx = *(lsptr);
+		}
 
-        if (gsptr > stack)
-        {
-            gsptr -= SHORT_STACK_SIZE;
+		if (gsptr > stack)
+		{
+			gsptr -= SHORT_STACK_SIZE;
 
-            for (int i = 1; i < SHORT_STACK_SIZE; ++i)
-            {
-                ldsstack[i * 64] = gsptr[i];
-            }
+			for (int i = 1; i < SHORT_STACK_SIZE; ++i)
+			{
+				ldsstack[i * 64] = gsptr[i];
+			}
 
-            lsptr = ldsstack + (SHORT_STACK_SIZE - 1) * 64;
-            idx = ldsstack[64 * (SHORT_STACK_SIZE - 1)];
-        }
-    }
+			lsptr = ldsstack + (SHORT_STACK_SIZE - 1) * 64;
+			idx = ldsstack[64 * (SHORT_STACK_SIZE - 1)];
+		}
+	}
 
-    return isect->shapeid >= 0;
+	return isect->shapeid >= 0;
 }
 #else
 // intersect Ray against the whole BVH structure
 bool IntersectSceneClosest(SceneData const* scenedata, ray const* r, Intersection* isect)
 {
-    const float3 invdir = native_recip(r->d.xyz);
+	const float3 invdir = native_recip(r->d.xyz);
 
-    isect->uvwt = make_float4(0.f, 0.f, 0.f, r->o.w);
-    isect->shapeid = -1;
-    isect->primid = -1;
+	isect->uvwt = make_float4(0.f, 0.f, 0.f, r->o.w);
+	isect->shapeid = -1;
+	isect->primid = -1;
 
-    if (r->o.w < 0.f)
-        return false;
-    
-    int stack[32];
+	if (r->o.w < 0.f)
+		return false;
 
-    int* sptr = stack;
-    *sptr++ = -1;
+	int stack[32];
 
-    int idx = 0;
-    FatBvhNode node;
+	int* sptr = stack;
+	*sptr++ = -1;
 
-    bool leftleaf = false;
-    bool rightleaf = false;
-    float lefthit = 0.f;
-    float righthit = 0.f;
-    int step = 0;
+	int idx = 0;
+	FatBvhNode node;
 
-    while (idx > -1)
-    {
-        node = scenedata->nodes[idx];
+	bool leftleaf = false;
+	bool rightleaf = false;
+	float lefthit = 0.f;
+	float righthit = 0.f;
+	int step = 0;
 
-        leftleaf = LEAFNODE(node.lbound);
-        rightleaf = LEAFNODE(node.rbound);
+	while (idx > -1)
+	{
+		node = scenedata->nodes[idx];
 
-        lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, isect->uvwt.w);
-        righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, isect->uvwt.w);
+		leftleaf = LEAFNODE(node.lbound);
+		rightleaf = LEAFNODE(node.rbound);
 
-        if (leftleaf)
-        {
-            IntersectLeafClosest(scenedata, STARTIDX(node.lbound), r, isect);
-        }
+		lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, isect->uvwt.w);
+		righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, isect->uvwt.w);
 
-        if (rightleaf)
-        {
-            IntersectLeafClosest(scenedata, STARTIDX(node.rbound), r, isect);
-        }
+		if (leftleaf)
+		{
+			IntersectLeafClosest(scenedata, STARTIDX(node.lbound), r, isect);
+		}
 
-        if (lefthit > 0.f && righthit > 0.f)
-        {
-            int deferred = -1;
-            if (lefthit > righthit)
-            {
-                idx = (int)node.rbound.pmax.w;
-                deferred = (int)node.lbound.pmax.w;;
-            }
-            else
-            {
-                idx = (int)node.lbound.pmax.w;
-                deferred = (int)node.rbound.pmax.w;
-            }
+		if (rightleaf)
+		{
+			IntersectLeafClosest(scenedata, STARTIDX(node.rbound), r, isect);
+		}
 
-                    *sptr++ = deferred;
-            continue;
-        }
-        else if (lefthit > 0)
-        {
-            idx = (int)node.lbound.pmax.w;
-            continue;
-        }
-        else if (righthit > 0)
-        {
-            idx = (int)node.rbound.pmax.w;
-            continue;
-        }
+		if (lefthit > 0.f && righthit > 0.f)
+		{
+			int deferred = -1;
+			if (lefthit > righthit)
+			{
+				idx = (int)node.rbound.pmax.w;
+				deferred = (int)node.lbound.pmax.w;;
+			}
+			else
+			{
+				idx = (int)node.lbound.pmax.w;
+				deferred = (int)node.rbound.pmax.w;
+			}
 
-                idx = *--sptr;
-    }
+			*sptr++ = deferred;
+			continue;
+		}
+		else if (lefthit > 0)
+		{
+			idx = (int)node.lbound.pmax.w;
+			continue;
+		}
+		else if (righthit > 0)
+		{
+			idx = (int)node.rbound.pmax.w;
+			continue;
+		}
 
-    return isect->shapeid >= 0;
+		idx = *--sptr;
+	}
+
+	return isect->shapeid >= 0;
 }
 #endif
 
@@ -324,405 +324,207 @@ bool IntersectSceneClosest(SceneData const* scenedata, ray const* r, Intersectio
 // intersect Ray against the whole BVH structure
 bool IntersectSceneAny(SceneData const* scenedata, ray const* r, __global int* stack, __local int* ldsstack)
 {
-    const float3 invdir = native_recip(r->d.xyz);
+	const float3 invdir = native_recip(r->d.xyz);
 
-    __global int* gsptr = stack;
-    __local  int* lsptr = ldsstack;
+	__global int* gsptr = stack;
+	__local  int* lsptr = ldsstack;
 
-    if (r->o.w < 0.f)
-        return false;
+	if (r->o.w < 0.f)
+		return false;
 
-    *lsptr = -1;
-    lsptr += 64;
+	*lsptr = -1;
+	lsptr += 64;
 
-    int idx = 0;
-    FatBvhNode node;
+	int idx = 0;
+	FatBvhNode node;
 
-    bool leftleaf = false;
-    bool rightleaf = false;
-    float lefthit = 0.f;
-    float righthit = 0.f;
+	bool leftleaf = false;
+	bool rightleaf = false;
+	float lefthit = 0.f;
+	float righthit = 0.f;
 
-    while (idx > -1)
-    {
-        while (idx > -1)
-        {
-            node = scenedata->nodes[idx];
+	while (idx > -1)
+	{
+		while (idx > -1)
+		{
+			node = scenedata->nodes[idx];
 
-            leftleaf = LEAFNODE(node.lbound);
-            rightleaf = LEAFNODE(node.rbound);
+			leftleaf = LEAFNODE(node.lbound);
+			rightleaf = LEAFNODE(node.rbound);
 
-            lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, r->o.w);
-            righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, r->o.w);
+			lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, r->o.w);
+			righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, r->o.w);
 
-            if (leftleaf)
-            {
-                if (IntersectLeafAny(scenedata, STARTIDX(node.lbound), r))
-                                    return true;
-            }
+			if (leftleaf)
+			{
+				if (IntersectLeafAny(scenedata, STARTIDX(node.lbound), r))
+					return true;
+			}
 
-            if (rightleaf)
-            {
-                if (IntersectLeafAny(scenedata, STARTIDX(node.rbound), r))
-                                return true;
-            }
+			if (rightleaf)
+			{
+				if (IntersectLeafAny(scenedata, STARTIDX(node.rbound), r))
+					return true;
+			}
 
-            if (lefthit > 0.f && righthit > 0.f)
-            {
-                int deferred = -1;
-                if (lefthit > righthit)
-                {
-                    idx = (int)node.rbound.pmax.w;
-                    deferred = (int)node.lbound.pmax.w;;
+			if (lefthit > 0.f && righthit > 0.f)
+			{
+				int deferred = -1;
+				if (lefthit > righthit)
+				{
+					idx = (int)node.rbound.pmax.w;
+					deferred = (int)node.lbound.pmax.w;;
 
-                }
-                else
-                {
-                    idx = (int)node.lbound.pmax.w;
-                    deferred = (int)node.rbound.pmax.w;
-                }
+				}
+				else
+				{
+					idx = (int)node.lbound.pmax.w;
+					deferred = (int)node.rbound.pmax.w;
+				}
 
-                if (lsptr - ldsstack >= SHORT_STACK_SIZE * 64)
-                {
-                    for (int i = 1; i < SHORT_STACK_SIZE; ++i)
-                    {
-                        gsptr[i] = ldsstack[i * 64];
-                    }
+				if (lsptr - ldsstack >= SHORT_STACK_SIZE * 64)
+				{
+					for (int i = 1; i < SHORT_STACK_SIZE; ++i)
+					{
+						gsptr[i] = ldsstack[i * 64];
+					}
 
-                    gsptr += SHORT_STACK_SIZE;
-                    lsptr = ldsstack + 64;
-                }
+					gsptr += SHORT_STACK_SIZE;
+					lsptr = ldsstack + 64;
+				}
 
-                *lsptr = deferred;
-                lsptr += 64;
-                continue;
-            }
-            else if (lefthit > 0)
-            {
-                idx = (int)node.lbound.pmax.w;
-                continue;
-            }
-            else if (righthit > 0)
-            {
-                idx = (int)node.rbound.pmax.w;
-                continue;
-            }
+				*lsptr = deferred;
+				lsptr += 64;
+				continue;
+			}
+			else if (lefthit > 0)
+			{
+				idx = (int)node.lbound.pmax.w;
+				continue;
+			}
+			else if (righthit > 0)
+			{
+				idx = (int)node.rbound.pmax.w;
+				continue;
+			}
 
-            lsptr -= 64;
-            idx = *(lsptr);
-        }
+			lsptr -= 64;
+			idx = *(lsptr);
+		}
 
-        if (gsptr > stack)
-        {
-            gsptr -= SHORT_STACK_SIZE;
+		if (gsptr > stack)
+		{
+			gsptr -= SHORT_STACK_SIZE;
 
-            for (int i = 1; i < SHORT_STACK_SIZE; ++i)
-            {
-                ldsstack[i * 64] = gsptr[i];
-            }
+			for (int i = 1; i < SHORT_STACK_SIZE; ++i)
+			{
+				ldsstack[i * 64] = gsptr[i];
+			}
 
-            lsptr = ldsstack + (SHORT_STACK_SIZE - 1) * 64;
-            idx = ldsstack[64 * (SHORT_STACK_SIZE - 1)];
-        }
-    }
+			lsptr = ldsstack + (SHORT_STACK_SIZE - 1) * 64;
+			idx = ldsstack[64 * (SHORT_STACK_SIZE - 1)];
+		}
+	}
 
-    return false;
+	return false;
 }
 #else
 // intersect Ray against the whole BVH structure
 bool IntersectSceneAny(SceneData const* scenedata, ray const* r)
 {
-    const float3 invdir = native_recip(r->d.xyz);
+	const float3 invdir = native_recip(r->d.xyz);
 
-    if (r->o.w < 0.f)
-        return false;
-    
-    int stack[32];
+	if (r->o.w < 0.f)
+		return false;
 
-    int* sptr = stack;
-    *sptr++ = -1;
+	int stack[32];
 
-    int idx = 0;
-    FatBvhNode node;
+	int* sptr = stack;
+	*sptr++ = -1;
 
-    bool leftleaf = false;
-    bool rightleaf = false;
-    float lefthit = 0.f;
-    float righthit = 0.f;
-    int step = 0;
+	int idx = 0;
+	FatBvhNode node;
 
-    bool found = false;
+	bool leftleaf = false;
+	bool rightleaf = false;
+	float lefthit = 0.f;
+	float righthit = 0.f;
+	int step = 0;
 
-    while (idx > -1)
-    {
-        node = scenedata->nodes[idx];
+	bool found = false;
 
-        leftleaf = LEAFNODE(node.lbound);
-        rightleaf = LEAFNODE(node.rbound);
+	while (idx > -1)
+	{
+		node = scenedata->nodes[idx];
 
-        lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, r->o.w);
-        righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, r->o.w);
+		leftleaf = LEAFNODE(node.lbound);
+		rightleaf = LEAFNODE(node.rbound);
 
-        if (leftleaf)
-        {
-            if (IntersectLeafAny(scenedata, STARTIDX(node.lbound), r))
-            {
-                found = true;
-                break;
-            }
-        }
-        
-        if (rightleaf)
-        {
-            if (IntersectLeafAny(scenedata, STARTIDX(node.rbound), r))
-                    {
-                        found = true;
-                        break;
-                    }
-        }
+		lefthit = leftleaf ? -1.f : IntersectBoxF(r, invdir, node.lbound, r->o.w);
+		righthit = rightleaf ? -1.f : IntersectBoxF(r, invdir, node.rbound, r->o.w);
 
-        if (lefthit > 0.f && righthit > 0.f)
-        {
-            int deferred = -1;
-            if (lefthit > righthit)
-            {
-                idx = (int)node.rbound.pmax.w;
-                deferred = (int)node.lbound.pmax.w;;
-            }
-            else
-            {
-                idx = (int)node.lbound.pmax.w;
-                deferred = (int)node.rbound.pmax.w;
-            }
+		if (leftleaf)
+		{
+			if (IntersectLeafAny(scenedata, STARTIDX(node.lbound), r))
+			{
+				found = true;
+				break;
+			}
+		}
 
-                    *sptr++ = deferred;
-        }
-        else if (lefthit > 0)
-        {
-            idx = (int)node.lbound.pmax.w;
-        }
-        else if (righthit > 0)
-        {
-            idx = (int)node.rbound.pmax.w;
-        }
+		if (rightleaf)
+		{
+			if (IntersectLeafAny(scenedata, STARTIDX(node.rbound), r))
+			{
+				found = true;
+				break;
+			}
+		}
 
-        if (lefthit <= 0.f && righthit <= 0.f)
-            idx = *--sptr;
-    }
+		if (lefthit > 0.f && righthit > 0.f)
+		{
+			int deferred = -1;
+			if (lefthit > righthit)
+			{
+				idx = (int)node.rbound.pmax.w;
+				deferred = (int)node.lbound.pmax.w;;
+			}
+			else
+			{
+				idx = (int)node.lbound.pmax.w;
+				deferred = (int)node.rbound.pmax.w;
+			}
 
-    return found;
+			*sptr++ = deferred;
+		}
+		else if (lefthit > 0)
+		{
+			idx = (int)node.lbound.pmax.w;
+		}
+		else if (righthit > 0)
+		{
+			idx = (int)node.rbound.pmax.w;
+		}
+
+		if (lefthit <= 0.f && righthit <= 0.f)
+			idx = *--sptr;
+	}
+
+	return found;
 }
 
 #endif
 
 __attribute__((reqd_work_group_size(64, 1, 1)))
 __kernel void IntersectClosest(
-    // Input
-    __global FatBvhNode const* nodes,   // BVH nodes
-    __global float3 const* vertices, // Scene positional data
-    __global Face const* faces,    // Scene indices
-    __global ShapeData const* shapes, // Shape data
-    __global ray const* rays,        // Ray workload
-    int offset,                // Offset in rays array
-    int numrays,               // Number of rays to process
-    __global Intersection* hits // Hit datas
-    , __global int* stack
-    )
-{
-    __local int ldsstack[SHORT_STACK_SIZE * 64];
-
-    int global_id = get_global_id(0);
-    int local_id = get_local_id(0);
-    int group_id = get_group_id(0);
-
-    // Fill scene data 
-    SceneData scenedata =
-    {
-        nodes,
-        vertices,
-        faces,
-        shapes,
-        0
-    };
-
-    if (global_id < numrays)
-    {
-        // Fetch ray
-        ray r = rays[global_id];
-        
-        if (Ray_IsActive(&r))
-        {
-            // Calculate closest hit
-            Intersection isect;
-#ifndef GLOBAL_STACK 
-            IntersectSceneClosest(&scenedata, &r, &isect, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id);
-#else
-            IntersectSceneClosest(&scenedata, &r, &isect);
-#endif
-
-            // Write data back in case of a hit
-            hits[global_id] = isect;
-        }
-    }
-}
-
-__attribute__((reqd_work_group_size(64, 1, 1)))
-__kernel void IntersectAny(
-    // Input
-    __global FatBvhNode const* nodes,   // BVH nodes
-    __global float3 const* vertices, // Scene positional data
-    __global Face const* faces,    // Scene indices
-    __global ShapeData const* shapes,     // Shape data
-    __global ray const* rays,        // Ray workload
-    int offset,                // Offset in rays array
-    int numrays,               // Number of rays to process                    
-    __global int* hitresults  // Hit results
-    , __global int* stack
-    )
-{
-
-    __local int ldsstack[SHORT_STACK_SIZE * 64];
-    int global_id = get_global_id(0);
-    int local_id = get_local_id(0);
-    int group_id = get_group_id(0);
-
-    // Fill scene data 
-    SceneData scenedata =
-    {
-        nodes,
-        vertices,
-        faces,
-        shapes,
-        0
-    };
-
-    if (global_id < numrays)
-    {
-        // Fetch ray
-        ray r = rays[global_id];
-
-        if (Ray_IsActive(&r))
-        {
-            // Calculate any intersection
-#ifndef GLOBAL_STACK 
-            hitresults[global_id] = IntersectSceneAny(&scenedata, &r, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id) ? 1 : -1;
-#else
-            hitresults[global_id] = IntersectSceneAny(&scenedata, &r) ? 1 : -1;
-#endif
-        }
-    }
-}
-
-__attribute__((reqd_work_group_size(64, 1, 1)))
-// Version with range check
-__kernel void IntersectClosestRC(
-    __global FatBvhNode const* nodes,   // BVH nodes
-    __global float3 const* vertices, // Scene positional data
-    __global Face const* faces,      // Scene indices
-    __global ShapeData const* shapes,     // Shape data
-    __global ray const* rays,        // Ray workload
-    int offset,                // Offset in rays array
-    __global int const* numrays,     // Number of rays in the workload
-    __global Intersection* hits // Hit datas
-    , __global int* stack
-    )
-{
-    __local int ldsstack[SHORT_STACK_SIZE * 64];
-
-    int global_id = get_global_id(0);
-    int local_id = get_local_id(0);
-    int group_id = get_group_id(0);
-
-    // Fill scene data 
-    SceneData scenedata =
-    {
-        nodes,
-        vertices,
-        faces,
-        shapes,
-        0
-    };
-
-    // Handle only working subset
-    if (global_id < *numrays)
-    {
-        // Fetch ray
-        ray r = rays[global_id];
-
-        if (Ray_IsActive(&r))
-        {
-            // Calculate closest hit
-            Intersection isect;
-#ifndef GLOBAL_STACK 
-            IntersectSceneClosest(&scenedata, &r, &isect, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id);
-#else
-            IntersectSceneClosest(&scenedata, &r, &isect);
-#endif
-            // Write data back in case of a hit
-            hits[global_id] = isect;
-        }
-    }
-}
-
-__attribute__((reqd_work_group_size(64, 1, 1)))
-// Version with range check
-__kernel void IntersectAnyRC(
-    // Input
-    __global FatBvhNode const* nodes,   // BVH nodes
-    __global float3 const* vertices, // Scene positional data
-    __global Face const* faces,    // Scene indices
-    __global ShapeData const* shapes,     // Shape data
-    __global ray const* rays,        // Ray workload
-    int offset,                // Offset in rays array
-    __global int const* numrays,     // Number of rays in the workload
-    __global int* hitresults   // Hit results
-    , __global int* stack
-    )
-{
-    __local int ldsstack[SHORT_STACK_SIZE * 64];
-    int global_id = get_global_id(0);
-    int local_id = get_local_id(0);
-    int group_id = get_group_id(0);
-
-    // Fill scene data 
-    SceneData scenedata =
-    {
-        nodes,
-        vertices,
-        faces,
-        shapes,
-        0
-    };
-
-    // Handle only working subset
-    if (global_id < *numrays)
-    {
-        // Fetch ray
-        ray r = rays[global_id];
-
-        if (Ray_IsActive(&r))
-        {
-            // Calculate any intersection
-#ifndef GLOBAL_STACK 
-            hitresults[global_id] = IntersectSceneAny(&scenedata, &r, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id) ? 1 : -1;
-#else
-            hitresults[global_id] = IntersectSceneAny(&scenedata, &r) ? 1 : -1;
-#endif
-        }
-    }
-}
-
-// COVART: Multiple
-// Version with range check
-__kernel void MultipleIntersectClosestRC(
+	// Input
 	__global FatBvhNode const* nodes,   // BVH nodes
 	__global float3 const* vertices, // Scene positional data
-	__global Face const* faces,      // Scene indices
-	__global ShapeData const* shapes,     // Shape data
+	__global Face const* faces,    // Scene indices
+	__global ShapeData const* shapes, // Shape data
 	__global ray const* rays,        // Ray workload
 	int offset,                // Offset in rays array
-	__global int const* numrays,     // Number of rays in the workload
-	int maxrays,                // Max rays
+	int numrays,               // Number of rays to process
 	__global Intersection* hits // Hit datas
 	, __global int* stack
 )
@@ -743,10 +545,209 @@ __kernel void MultipleIntersectClosestRC(
 		0
 	};
 
-	// compute my mutiple_view_index
-	int mutiple_view_index = global_id / maxrays;
+	if (global_id < numrays)
+	{
+		// Fetch ray
+		ray r = rays[global_id];
 
-	int current_view_global_id = global_id - mutiple_view_index * maxrays;
+		if (Ray_IsActive(&r))
+		{
+			// Calculate closest hit
+			Intersection isect;
+#ifndef GLOBAL_STACK 
+			IntersectSceneClosest(&scenedata, &r, &isect, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id);
+#else
+			IntersectSceneClosest(&scenedata, &r, &isect);
+#endif
+
+			// Write data back in case of a hit
+			hits[global_id] = isect;
+		}
+	}
+}
+
+__attribute__((reqd_work_group_size(64, 1, 1)))
+__kernel void IntersectAny(
+	// Input
+	__global FatBvhNode const* nodes,   // BVH nodes
+	__global float3 const* vertices, // Scene positional data
+	__global Face const* faces,    // Scene indices
+	__global ShapeData const* shapes,     // Shape data
+	__global ray const* rays,        // Ray workload
+	int offset,                // Offset in rays array
+	int numrays,               // Number of rays to process                    
+	__global int* hitresults  // Hit results
+	, __global int* stack
+)
+{
+
+	__local int ldsstack[SHORT_STACK_SIZE * 64];
+	int global_id = get_global_id(0);
+	int local_id = get_local_id(0);
+	int group_id = get_group_id(0);
+
+	// Fill scene data 
+	SceneData scenedata =
+	{
+		nodes,
+		vertices,
+		faces,
+		shapes,
+		0
+	};
+
+	if (global_id < numrays)
+	{
+		// Fetch ray
+		ray r = rays[global_id];
+
+		if (Ray_IsActive(&r))
+		{
+			// Calculate any intersection
+#ifndef GLOBAL_STACK 
+			hitresults[global_id] = IntersectSceneAny(&scenedata, &r, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id) ? 1 : -1;
+#else
+			hitresults[global_id] = IntersectSceneAny(&scenedata, &r) ? 1 : -1;
+#endif
+		}
+	}
+}
+
+__attribute__((reqd_work_group_size(64, 1, 1)))
+// Version with range check
+__kernel void IntersectClosestRC(
+	__global FatBvhNode const* nodes,   // BVH nodes
+	__global float3 const* vertices, // Scene positional data
+	__global Face const* faces,      // Scene indices
+	__global ShapeData const* shapes,     // Shape data
+	__global ray const* rays,        // Ray workload
+	int offset,                // Offset in rays array
+	__global int const* numrays,     // Number of rays in the workload
+	__global Intersection* hits // Hit datas
+	, __global int* stack
+)
+{
+	__local int ldsstack[SHORT_STACK_SIZE * 64];
+
+	int global_id = get_global_id(0);
+	int local_id = get_local_id(0);
+	int group_id = get_group_id(0);
+
+	// Fill scene data 
+	SceneData scenedata =
+	{
+		nodes,
+		vertices,
+		faces,
+		shapes,
+		0
+	};
+
+	// Handle only working subset
+	if (global_id < *numrays)
+	{
+		// Fetch ray
+		ray r = rays[global_id];
+
+		if (Ray_IsActive(&r))
+		{
+			// Calculate closest hit
+			Intersection isect;
+#ifndef GLOBAL_STACK 
+			IntersectSceneClosest(&scenedata, &r, &isect, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id);
+#else
+			IntersectSceneClosest(&scenedata, &r, &isect);
+#endif
+			// Write data back in case of a hit
+			hits[global_id] = isect;
+		}
+	}
+}
+
+__attribute__((reqd_work_group_size(64, 1, 1)))
+// Version with range check
+__kernel void IntersectAnyRC(
+	// Input
+	__global FatBvhNode const* nodes,   // BVH nodes
+	__global float3 const* vertices, // Scene positional data
+	__global Face const* faces,    // Scene indices
+	__global ShapeData const* shapes,     // Shape data
+	__global ray const* rays,        // Ray workload
+	int offset,                // Offset in rays array
+	__global int const* numrays,     // Number of rays in the workload
+	__global int* hitresults   // Hit results
+	, __global int* stack
+)
+{
+	__local int ldsstack[SHORT_STACK_SIZE * 64];
+	int global_id = get_global_id(0);
+	int local_id = get_local_id(0);
+	int group_id = get_group_id(0);
+
+	// Fill scene data 
+	SceneData scenedata =
+	{
+		nodes,
+		vertices,
+		faces,
+		shapes,
+		0
+	};
+
+	// Handle only working subset
+	if (global_id < *numrays)
+	{
+		// Fetch ray
+		ray r = rays[global_id];
+
+		if (Ray_IsActive(&r))
+		{
+			// Calculate any intersection
+#ifndef GLOBAL_STACK 
+			hitresults[global_id] = IntersectSceneAny(&scenedata, &r, stack + group_id * 64 * 32 + local_id * 32, ldsstack + local_id) ? 1 : -1;
+#else
+			hitresults[global_id] = IntersectSceneAny(&scenedata, &r) ? 1 : -1;
+#endif
+		}
+	}
+}
+
+// COVART: Multiple
+// Version with range check
+__kernel void MultipleIntersectClosestRC(
+	__global FatBvhNode const* nodes,   // BVH nodes
+	__global float3 const* vertices, // Scene positional data
+	__global Face const* faces,      // Scene indices
+	__global ShapeData const* shapes,     // Shape data
+	__global ray const* rays,        // Ray workload
+	int offset,                // Offset in rays array
+	__global int const* numrays,     // Number of rays in the workload
+	int maxrays,                // Max rays
+	__global Intersection* hits, // Hit datas
+	int batch_size                // Max rays
+	, __global int* stack
+)
+{
+	__local int ldsstack[SHORT_STACK_SIZE * 64];
+
+	int global_id = get_global_id(0);
+	int local_id = get_local_id(0);
+	int group_id = get_group_id(0);
+
+	// Fill scene data 
+	SceneData scenedata =
+	{
+		nodes,
+		vertices,
+		faces,
+		shapes,
+		0
+	};
+
+	// compute my mutiple_view_index
+	int mutiple_view_index = global_id / batch_size;
+
+	int current_view_global_id = global_id - mutiple_view_index * batch_size;
 	// Handle only working subset
 	if (current_view_global_id < *(numrays + mutiple_view_index))
 	{
@@ -780,7 +781,8 @@ __kernel void MultipleIntersectAnyRC(
 	int offset,                // Offset in rays array
 	__global int const* numrays,     // Number of rays in the workload
 	int maxrays,                // Max rays
-	__global int* hitresults   // Hit results
+	__global int* hitresults,   // Hit results
+	int batch_size               // Max rays
 	, __global int* stack
 )
 {
@@ -799,9 +801,9 @@ __kernel void MultipleIntersectAnyRC(
 		0
 	};
 	// compute my mutiple_view_index
-	int mutiple_view_index = global_id / maxrays;
+	int mutiple_view_index = global_id / batch_size;
 
-	int current_view_global_id = global_id - mutiple_view_index * maxrays;
+	int current_view_global_id = global_id - mutiple_view_index * batch_size;
 	// Handle only working subset
 	if (current_view_global_id < *(numrays + mutiple_view_index))
 	{
