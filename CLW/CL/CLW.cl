@@ -205,7 +205,7 @@ THE SOFTWARE.
     int localId   = get_local_id(0);\
     int groupSize = get_local_size(0);\
 	int view_id   = get_global_id(1);\
-	int workload_shift = view_id * numElems;\
+	int workload_shift = view_id * numElems / 4;\
 	__global type##4 const* in_array = multiple_in_array + workload_shift;\
 	__global type##4* out_array = multiple_out_array + workload_shift;\
     type##4 v1 = safe_load_##type##4(in_array, 2*globalId, numElems);\
@@ -224,7 +224,6 @@ THE SOFTWARE.
     t = v2.x; v2.x = v2.y; v2.y += t;\
     t = v1.z; v1.z = v1.w; v1.w += t;\
     t = v2.z; v2.z = v2.w; v2.w += t;\
-	if(view_id != 0){return;}\
     safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
     safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
@@ -293,7 +292,7 @@ THE SOFTWARE.
     int groupId   = get_group_id(0);\
     int groupSize = get_local_size(0);\
 	int view_id   = get_global_id(1);\
-	int workload_shift = view_id * numElems;\
+	int workload_shift = view_id * numElems / 4;\
 	__global type##4 const* in_array = multiple_in_array + workload_shift;\
 	__global type##4* out_array = multiple_out_array + workload_shift;\
 	__global type* out_sums = multiple_out_sums + view_id * partBoundarySize;\
@@ -314,7 +313,6 @@ THE SOFTWARE.
     t = v2.x; v2.x = v2.y; v2.y += t;\
     t = v1.z; v1.z = v1.w; v1.w += t;\
     t = v2.z; v2.z = v2.w; v2.w += t;\
-	if(view_id != 0){return;}\
 	safe_store_##type##4(v2, out_array, 2 * globalId + 1, numElems);\
 	safe_store_##type##4(v1, out_array, 2 * globalId, numElems);\
 }
@@ -351,11 +349,10 @@ THE SOFTWARE.
     int groupId   = get_group_id(0);\
 	int view_id   = get_global_id(1);\
 	__global type* in_sums = multiple_in_sums + view_id * partBoundarySize;\
-	__global type##4* inout_array = multiple_inout_array + view_id * numElems;\
+	__global type##4* inout_array = multiple_inout_array + view_id * numElems / 4;\
     type##4 v1 = safe_load_##type##4(inout_array, globalId, numElems);\
     type    sum = in_sums[groupId >> 1];\
     v1.xyzw += sum;\
-	if(view_id != 0){return;}\
     safe_store_##type##4(v1, inout_array, globalId, numElems);\
 }
 
@@ -1188,7 +1185,6 @@ __kernel void multiple_compact_int_1(__global int* multiple_in_predicate, __glob
 	__global int* in_input = multiple_in_input + workload_shift;
 	__global int* out_output = multiple_out_output + workload_shift;
 	__global int* out_size = multiple_out_size + view_id;
-	if (view_id != 0) { return; }
 	if (global_id < in_size)
 	{
 		if (in_predicate[global_id])

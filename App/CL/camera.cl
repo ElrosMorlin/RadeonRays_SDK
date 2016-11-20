@@ -222,8 +222,8 @@ __kernel void PerspectiveCamera_GenerateMultiplePaths(
 		
 		// Origin == camera position + nearz * d
 		float3 temp_pos = make_float3(camera->p.x + globalid.z*30, camera->p.y + globalid.z * 30, camera->p.z + globalid.z * 30);
-		myray->o.xyz = temp_pos + camera->zcap.x * myray->d.xyz;
-		// myray->o.xyz = camera->p + camera->zcap.x * myray->d.xyz; // COVART: restore to original
+		//myray->o.xyz = temp_pos + camera->zcap.x * myray->d.xyz;
+		 myray->o.xyz = camera->p + camera->zcap.x * myray->d.xyz; // COVART: restore to original
 
 
 		// Max T value = zfar - znear since we moved origin to znear

@@ -517,18 +517,6 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
 	context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
 
-	/*
-
-	bottomLevelScan2.SetArg(0, input);
-	bottomLevelScan2.SetArg(1, output);
-	bottomLevelScan2.SetArg(2, numElems);
-	bottomLevelScan2.SetArg(3, devicePartSumsBottomLevel);
-	//bottomLevelScan.SetArg(4, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
-	//bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	bottomLevelScan2.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_BOTTOM_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan2);
-	//context_.Launch2D(0, gs_btm, ls, bottomLevelScan);
-	*/
 
 	bottomLevelScan.SetArg(0, devicePartSumsBottomLevel);
 	bottomLevelScan.SetArg(1, devicePartSumsBottomLevel);
@@ -538,18 +526,6 @@ CLWEvent CLWParallelPrimitives::MultipleScanExclusiveAddThreeLevel(unsigned int 
 	bottomLevelScan.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
 	context_.Launch2D(0, gs_mid, ls, bottomLevelScan);
 
-	/*
-	
-	bottomLevelScan2.SetArg(0, devicePartSumsBottomLevel);
-	bottomLevelScan2.SetArg(1, devicePartSumsBottomLevel);
-	bottomLevelScan2.SetArg(2, (cl_uint)NUM_GROUPS_BOTTOM_LEVEL_SCAN);
-	bottomLevelScan2.SetArg(3, devicePartSumsMidLevel);
-	//bottomLevelScan2.SetArg(4, (cl_uint)NUM_GROUPS_MID_LEVEL_SCAN);
-	//bottomLevelScan2.SetArg(5, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	bottomLevelScan2.SetArg(4, SharedMemory(WG_SIZE * sizeof(cl_int)));
-	context_.Launch1D(0, NUM_GROUPS_MID_LEVEL_SCAN * WG_SIZE, WG_SIZE, bottomLevelScan2);
-	//context_.Launch2D(0, gs_mid, ls, bottomLevelScan);
-	*/
 
 	topLevelScan.SetArg(0, devicePartSumsMidLevel);
 	topLevelScan.SetArg(1, devicePartSumsMidLevel);
