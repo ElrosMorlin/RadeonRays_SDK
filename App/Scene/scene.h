@@ -21,6 +21,7 @@ THE SOFTWARE.
 ********************************************************************/
 #pragma once
 
+#include "multiple_view.h"
 #include "math/mathutils.h"
 #include "perspective_camera.h"
 #include <vector>
@@ -217,6 +218,8 @@ namespace Baikal
             std::vector<std::unique_ptr<char[]>> texturedata_;
             // Camera
             std::unique_ptr<PerspectiveCamera> camera_;
+			// COVART: MultipleCamera
+			std::unique_ptr<PerspectiveCamera> multiple_camera_[MULTIPLE_VIEW_SIZE];
             // Environment texture index
             int envidx_;
             // Environment low-res texture index

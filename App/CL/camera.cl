@@ -169,8 +169,7 @@ __kernel void PerspectiveCamera_GenerateMultiplePaths(
 	globalid.z = get_global_id(2); // this is data number
 	int workload_shift = (imgwidth * imgheight * globalid.z);
 	
-	//__global Camera const* camera = multiple_camera + globalid.z; // COVART: TODO: multiple camera
-	__global Camera const* camera = multiple_camera;
+	__global Camera const* camera = multiple_camera + globalid.z; 
 	// Check borders
 	// TODO: mask other workloads
 	if (globalid.x < imgwidth && globalid.y < imgheight)
@@ -221,9 +220,7 @@ __kernel void PerspectiveCamera_GenerateMultiplePaths(
 		
 		
 		// Origin == camera position + nearz * d
-		float3 temp_pos = make_float3(camera->p.x + globalid.z*30, camera->p.y + globalid.z * 30, camera->p.z + globalid.z * 30);
-		myray->o.xyz = temp_pos + camera->zcap.x * myray->d.xyz;
-		//myray->o.xyz = camera->p + camera->zcap.x * myray->d.xyz; // COVART: restore to original
+		myray->o.xyz = camera->p + camera->zcap.x * myray->d.xyz; 
 
 
 		// Max T value = zfar - znear since we moved origin to znear

@@ -605,7 +605,7 @@ namespace Baikal
 		CLWKernel genkernel = m_multiple_render_data->program.GetKernel(kernel_name);
 
 		// Set kernel parameters
-		genkernel.SetArg(0, scene.camera);
+		genkernel.SetArg(0, scene.multiple_camera);
 		genkernel.SetArg(1, m_multiple_output->width());
 		genkernel.SetArg(2, m_multiple_output->height());
 		genkernel.SetArg(3, (int)rand_uint());

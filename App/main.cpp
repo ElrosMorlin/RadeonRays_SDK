@@ -375,6 +375,23 @@ void InitData()
     g_scene->camera_->SetFocusDistance(g_camera_focus_distance);
     g_scene->camera_->SetAperture(g_camera_aperture);
 
+	// COVART: multiple camera init
+	// Currently, set to same position
+	for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
+		g_scene->multiple_camera_[i].reset(new PerspectiveCamera(
+			g_camera_pos
+			, g_camera_at
+			, g_camera_up));
+		// Adjust sensor size based on current aspect ratio
+
+		g_scene->multiple_camera_[i]->SetSensorSize(g_camera_sensor_size);
+		g_scene->multiple_camera_[i]->SetDepthRange(g_camera_zcap);
+		g_scene->multiple_camera_[i]->SetFocalLength(g_camera_focal_length);
+		g_scene->multiple_camera_[i]->SetFocusDistance(g_camera_focus_distance);
+		g_scene->multiple_camera_[i]->SetAperture(g_camera_aperture);
+	}
+
+
     std::cout << "Camera type: " << (g_scene->camera_->GetAperture() > 0.f ? "Physical" : "Pinhole") << "\n";
     std::cout << "Lens focal length: " << g_scene->camera_->GetFocalLength() * 1000.f << "mm\n";
     std::cout << "Lens focus distance: " << g_scene->camera_->GetFocusDistance() << "m\n";
@@ -949,6 +966,13 @@ void ExtractMultipleFrames() {
 void ExtractSingleFrameMultipleView(const std::string& filename_prefix = "") {
 	if (!g_interop)
 	{
+		// setup camera
+		for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
+			g_scene->multiple_camera_[i]->Rotate(0.1 * (i - MULTIPLE_VIEW_SIZE / 2));
+			g_scene->multiple_camera_[i]->Tilt(0.1 * (i - MULTIPLE_VIEW_SIZE / 2));
+		}
+		// render
+
 		int sample_frame = 1;
 		for (int i = 0;i < sample_frame;i++) {
 			UpdateFrameMultiple(i == 0); // clear screen buffer for first render

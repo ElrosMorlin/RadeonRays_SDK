@@ -102,6 +102,11 @@ namespace Baikal
 
         // Update camera data
         m_context.WriteBuffer(0, out.camera, scene.camera_.get(), 1);
+		
+		// COVART: update multiple camera
+		for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
+			m_context.WriteBuffer(0, out.multiple_camera, scene.multiple_camera_[i].get(), i, 1);
+		}
     }
 
     void SceneTracker::UpdateGeometry(Scene const& scene, ClwScene& out) const
@@ -145,6 +150,12 @@ namespace Baikal
 
         // Create static buffers
         out.camera = m_context.CreateBuffer<PerspectiveCamera>(1, CL_MEM_READ_ONLY |  CL_MEM_COPY_HOST_PTR, scene.camera_.get());
+		// COVART: create multiple camera buffer
+		out.multiple_camera = m_context.CreateBuffer<PerspectiveCamera>(MULTIPLE_VIEW_SIZE, CL_MEM_READ_ONLY);
+		// COVART: copy the cameras
+		for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
+			m_context.WriteBuffer(0, out.multiple_camera, scene.multiple_camera_[i].get(), i , 1).Wait();
+		}
 
         // Vertex, normal and uv data
         out.vertices = m_context.CreateBuffer<float3>(scene.vertices_.size(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (void*)&scene.vertices_[0]);

@@ -32,6 +32,7 @@ namespace Baikal
         CLWBuffer<char> texturedata;
 
         CLWBuffer<PerspectiveCamera> camera;
+		CLWBuffer<PerspectiveCamera> multiple_camera; // COVART: multiple camera array
 
         int numemissive;
         int envmapidx;
