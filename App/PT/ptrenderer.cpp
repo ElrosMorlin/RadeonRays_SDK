@@ -324,8 +324,11 @@ namespace Baikal
 		m_context.CopyBuffer(0, m_multiple_render_data->iota, m_multiple_render_data->pixelindices[1], 0, 0, m_multiple_render_data->iota.GetElementCount());
 		m_context.FillBuffer(0, m_multiple_render_data->hitcount, maxrays, MULTIPLE_VIEW_SIZE);
 		
-		
-
+#if RECORD_ACTIVE_RAYS
+		int num_active_ray[MULTIPLE_VIEW_SIZE];
+		int accu_active_ray;
+#endif
+		double total_intersection_time = 0.0;
 		// Initialize first pass
 		for (int pass = 0; pass < m_num_bounces; ++pass)
 		{
@@ -334,6 +337,18 @@ namespace Baikal
 			m_context.FillBuffer(0, m_multiple_render_data->hits, 0, m_multiple_render_data->hits.GetElementCount());
 
 			
+#if RECORD_ACTIVE_RAYS
+			// read active ray
+			m_context.ReadBuffer(0, m_multiple_render_data->hitcount, num_active_ray, MULTIPLE_VIEW_SIZE).Wait();
+			std::cout << "Bounce:" << pass << std::endl;
+			accu_active_ray = 0;
+			for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
+				//std::cout << "View " << i << " : " << num_active_ray [i] << std::endl;
+				accu_active_ray += num_active_ray[i];
+			}
+#endif
+			
+
 			// Intersect ray batch
 			auto time = std::chrono::high_resolution_clock::now();
 			
@@ -342,7 +357,10 @@ namespace Baikal
 			e->Wait();
 			auto  end_time  = std::chrono::high_resolution_clock::now();
 			auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - time);
-			std::cout << "Intersection Time:" << dt.count() << std::endl;
+			total_intersection_time += dt.count();
+#if RECORD_ACTIVE_RAYS
+			std::cout << "Active Ray: " << accu_active_ray << ", Samples per second:" << accu_active_ray / dt.count() << std::endl;
+#endif
 
 			//m_api->DeleteEvent(e);
 			
@@ -385,7 +403,7 @@ namespace Baikal
 			//
 			m_context.Flush(0);
 		}
-		
+		std::cout << "Intersection Time:" << total_intersection_time << std::endl;
 	}
 
     void PtRenderer::SetOutput(Output* output)
