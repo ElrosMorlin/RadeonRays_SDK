@@ -21,3 +21,8 @@ Bin/Release/x64/App64.exe
 *.sln
 
 /App/*.hdr
+
+!/Resources/*/*.obj
+hairball.obj
+hairball.blend
+hairball.mtl
