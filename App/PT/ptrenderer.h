@@ -34,6 +34,7 @@ namespace Baikal
 {
     class ClwOutput;
 	class ClwMultipleOutput; // COVART
+	class ClwPipelineOutput; // KAOCC
 	struct ClwScene;
     class SceneTracker;
 
@@ -51,6 +52,8 @@ namespace Baikal
         Output* CreateOutput(std::uint32_t w, std::uint32_t h) const override;
 		// COVART: Create multiple output
 		Output* CreateMultipleOutput(std::uint32_t w, std::uint32_t h) const override;
+		Output* CreatePipelineOutput(std::uint32_t w, std::uint32_t h) const override;
+
         // Delete output
         void DeleteOutput(Output* output) const override;
         // Clear output
@@ -63,6 +66,9 @@ namespace Baikal
         void SetOutput(Output* output) override;
         // COVART: multiple
 		void SetMultipleOutput(Output* output) override;
+		// KAOCC: pipeline
+		void SetPipelineOutput(Output* output) override;
+
 		// Set number of light bounces
         void SetNumBounces(int num_bounces);
         // Interop function
@@ -80,6 +86,10 @@ namespace Baikal
         void ResizeWorkingSet(Output const& output);
 		// Resize output-dependent buffers
 		void MultipleResizeWorkingSet(Output const& output);
+		// KAOCC: pipeline output
+		void PipelineResizeWorkingSet(Output const& output);
+
+
 		// Generate rays
         void GeneratePrimaryRays(ClwScene const& scene);
 		// COVART: Generate rays
@@ -117,6 +127,13 @@ namespace Baikal
 		// COVART: Shade background
 		void MultipleShadeBackground(ClwScene const& scene, int pass);
 
+
+
+		// KAOCC:
+		
+
+
+
     public:
         // CL context
         CLWContext m_context;
@@ -124,6 +141,10 @@ namespace Baikal
         ClwOutput* m_output;
 		// COVART: multiple Output object
 		ClwMultipleOutput* m_multiple_output;
+
+		//KAOCC: pipeline Output object
+		ClwPipelineOutput* m_pipeline_output;
+
         // Flag to reset the sampler
         mutable bool m_resetsampler;
         // Scene tracker
@@ -139,6 +160,10 @@ namespace Baikal
 
 		// COVART: MultipleRenderData
 		std::unique_ptr<MultipleRenderData> m_multiple_render_data;
+
+		// KAOCC: pipeline render data
+
+		std::unique_ptr<RenderData> m_pipeline_render_data;
 
         // Intersector data
         std::vector<RadeonRays::Shape*> m_shapes;

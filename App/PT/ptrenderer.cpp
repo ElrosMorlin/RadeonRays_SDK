@@ -101,6 +101,7 @@ namespace Baikal
         }
     };
 
+	// KAOCC: why you need this ? It's identical to RenderData!
 	struct PtRenderer::MultipleRenderData
 	{
 		// OpenCL stuff
@@ -152,6 +153,7 @@ namespace Baikal
 		, m_multiple_output(nullptr)
         , m_render_data(new RenderData)
 		, m_multiple_render_data(new MultipleRenderData)
+		, m_pipeline_render_data(new RenderData)   // KAOCC
         , m_vidmemws(0)
         , m_resetsampler(true)
         , m_scene_tracker(context, devidx)
@@ -191,6 +193,14 @@ namespace Baikal
 		// COVART: the sobolmat data seems shared between views, generate once
 		m_multiple_render_data->sobolmat = m_context.CreateBuffer<unsigned int>(1024 * 52, CL_MEM_READ_ONLY, &g_SobolMatrices[0]);
 
+
+		// KAOCC: pipeline stuff
+		// Not an elegant approach but whatever ....
+		m_pipeline_render_data->program = m_render_data->program;
+
+		// KAOCC
+		m_pipeline_render_data->sobolmat = m_context.CreateBuffer<unsigned int>(1024 * 52, CL_MEM_READ_ONLY, &g_SobolMatrices[0]);
+
     }
 
     PtRenderer::~PtRenderer()
@@ -206,6 +216,13 @@ namespace Baikal
 	{
 		return new ClwMultipleOutput(w, h, m_context);
 	}
+
+	// KAOCC
+	Output* PtRenderer::CreatePipelineOutput(std::uint32_t w, std::uint32_t h) const
+	{
+		return new ClwPipelineOutput(w, h, m_context);
+	}
+
 
     void PtRenderer::DeleteOutput(Output* output) const
     {
@@ -427,6 +444,19 @@ namespace Baikal
 		m_multiple_output = static_cast<ClwMultipleOutput*>(output);
 	}
 
+	// KAOCC: TODO: USE TEMPLATE !!!
+	void PtRenderer::SetPipelineOutput(Output* output)
+	{
+		if (!m_pipeline_output || m_pipeline_output->width() < output->width() || m_pipeline_output->height() < output->height())
+		{
+			PipelineResizeWorkingSet(*output);
+		}
+
+		m_pipeline_output = static_cast<ClwPipelineOutput*>(output);
+	}
+
+	
+
 	void PtRenderer::ResizeWorkingSet(Output const& output)
 	{
 		m_vidmemws = 0;
@@ -579,6 +609,13 @@ namespace Baikal
 
 		std::cout << "Vidmem usage (working set): " << m_vidmemws / (1024 * 1024) << "Mb\n";
 	}
+
+
+	// KAOCC:
+	void PtRenderer::PipelineResizeWorkingSet(Output const& output) {
+
+	}
+
 
     void PtRenderer::GeneratePrimaryRays(ClwScene const& scene)
     {

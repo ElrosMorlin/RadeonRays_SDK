@@ -41,6 +41,9 @@ namespace Baikal
         virtual Output* CreateOutput(std::uint32_t w, std::uint32_t h) const = 0;
 		// COVART: multiple
 		virtual Output* CreateMultipleOutput(std::uint32_t w, std::uint32_t h) const = 0;
+		// KAOCC: pipeline 
+		virtual Output* CreatePipelineOutput(std::uint32_t w, std::uint32_t h) const = 0;
+
 		// Delete output
         virtual void DeleteOutput(Output* output) const = 0;
         // Clear output
@@ -54,6 +57,9 @@ namespace Baikal
         virtual void SetOutput(Output* output) = 0;
 		// COVART: multiple
 		virtual void SetMultipleOutput(Output* output) = 0;
+		//KAOCC: pipeline
+		virtual void SetPipelineOutput(Output* output) = 0;
+
 		// Multiple View render, will modify the camera
 		virtual void MultipleViewRender(Scene&  scene) = 0;
 

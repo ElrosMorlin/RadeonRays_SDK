@@ -21,6 +21,9 @@ THE SOFTWARE.
 ********************************************************************/
 #include "OpenImageIO/imageio.h"
 
+// KAOCC
+static const bool g_pipeline_flag = true;
+
 #define USE_SINGLE_CAPTURE
 
 #ifdef __APPLE__
@@ -142,6 +145,15 @@ struct MultipleOutputData
 	CLWBuffer<float3> copybuffer;
 };
 
+// KAOCC: Pipieline Output Data
+struct PipelineOutputData
+{
+	Baikal::ClwPipelineOutput* output;
+	std::vector<float3> fdata;
+	std::vector<unsigned char> udata;
+	CLWBuffer<float3> copybuffer;
+};
+
 struct ControlData
 {
     std::atomic<int> clear;
@@ -154,6 +166,7 @@ struct ControlData
 std::vector<ConfigManager::Config> g_cfgs;
 std::vector<OutputData> g_outputs;
 std::vector<MultipleOutputData> g_multiple_outputs;
+std::vector<PipelineOutputData>g_pipeline_outputs;  // KAOCC Pipeline impl.
 std::unique_ptr<ControlData[]> g_ctrl;
 std::vector<std::thread> g_renderthreads;
 int g_primary = -1;
@@ -310,6 +323,11 @@ void InitCl()
     g_outputs.resize(g_cfgs.size());
 	// COVART: multiple output
 	g_multiple_outputs.resize(g_cfgs.size());
+
+	//KAOCC: pipeline
+	// do we need flags ?
+	g_pipeline_outputs.resize(g_cfgs.size());
+
     g_ctrl.reset(new ControlData[g_cfgs.size()]);
 
     for (int i = 0; i < g_cfgs.size(); ++i)
@@ -400,47 +418,79 @@ void InitData()
 
     g_scene->SetEnvironment(g_envmapname, "", g_envmapmul);
 
+	if (!g_pipeline_flag) {
+
 #pragma omp parallel for
-    for (int i = 0; i < g_cfgs.size(); ++i)
-    {
-        //g_cfgs[i].renderer->SetNumBounces(g_num_bounces);
-        g_cfgs[i].renderer->Preprocess(*g_scene);
-
-        g_outputs[i].output = (Baikal::ClwOutput*)g_cfgs[i].renderer->CreateOutput(g_window_width, g_window_height);
-
-        g_cfgs[i].renderer->SetOutput(g_outputs[i].output);
-
-        g_outputs[i].fdata.resize(g_window_width * g_window_height);
-        g_outputs[i].udata.resize(g_window_width * g_window_height * 4);
-
-        if (g_cfgs[i].type == ConfigManager::kPrimary)
-        {
-            g_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height, CL_MEM_READ_WRITE);
-        }
-    }
-
-	// COVART
-#pragma omp parallel for
-	for (int i = 0; i < g_cfgs.size(); ++i)
-	{
-		//g_cfgs[i].renderer->SetNumBounces(g_num_bounces);
-		//g_cfgs[i].renderer->Preprocess(*g_scene);
-
-		g_multiple_outputs[i].output = (Baikal::ClwMultipleOutput*)g_cfgs[i].renderer->CreateMultipleOutput(g_window_width, g_window_height);
-
-		g_cfgs[i].renderer->SetMultipleOutput(g_multiple_outputs[i].output);
-
-		g_multiple_outputs[i].fdata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
-		g_multiple_outputs[i].udata.resize(g_window_width * g_window_height * 4 * MULTIPLE_VIEW_SIZE);
-
-		if (g_cfgs[i].type == ConfigManager::kPrimary)
+		for (int i = 0; i < g_cfgs.size(); ++i)
 		{
-			g_multiple_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
+			//g_cfgs[i].renderer->SetNumBounces(g_num_bounces);
+			g_cfgs[i].renderer->Preprocess(*g_scene);
+
+			g_outputs[i].output = (Baikal::ClwOutput*)g_cfgs[i].renderer->CreateOutput(g_window_width, g_window_height);
+
+			g_cfgs[i].renderer->SetOutput(g_outputs[i].output);
+
+			g_outputs[i].fdata.resize(g_window_width * g_window_height);
+			g_outputs[i].udata.resize(g_window_width * g_window_height * 4);
+
+			if (g_cfgs[i].type == ConfigManager::kPrimary)
+			{
+				g_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height, CL_MEM_READ_WRITE);
+			}
 		}
+
+		// KAOCC: need flag here !!
+
+		// COVART
+#pragma omp parallel for
+		for (int i = 0; i < g_cfgs.size(); ++i)
+		{
+			//g_cfgs[i].renderer->SetNumBounces(g_num_bounces);
+			//g_cfgs[i].renderer->Preprocess(*g_scene);
+
+			g_multiple_outputs[i].output = (Baikal::ClwMultipleOutput*)g_cfgs[i].renderer->CreateMultipleOutput(g_window_width, g_window_height);
+
+			g_cfgs[i].renderer->SetMultipleOutput(g_multiple_outputs[i].output);
+
+			g_multiple_outputs[i].fdata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
+			g_multiple_outputs[i].udata.resize(g_window_width * g_window_height * 4 * MULTIPLE_VIEW_SIZE);
+
+			if (g_cfgs[i].type == ConfigManager::kPrimary)
+			{
+				g_multiple_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
+			}
+		}
+		//g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_outputs[g_primary].output);
+		// COVART: multiple view
+		g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_multiple_outputs[g_primary].output);
+
+	} else {
+
+		// KAOCC: the mighty pipeline 
+
+#pragma omp parallel for
+		for (int i = 0; i < g_cfgs.size(); ++i) {
+
+			g_pipeline_outputs[i].output = (Baikal::ClwPipelineOutput*)g_cfgs[i].renderer->CreatePipelineOutput(g_window_width, g_window_height);
+
+			g_cfgs[i].renderer->SetPipelineOutput(g_pipeline_outputs[i].output);
+
+			g_pipeline_outputs[i].fdata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
+			g_pipeline_outputs[i].udata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
+
+			if (g_cfgs[i].type == ConfigManager::kPrimary) {
+				g_pipeline_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
+			}
+
+
+		}
+
+		g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_pipeline_outputs[g_primary].output);
+
+
 	}
-    //g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_outputs[g_primary].output);
-	// COVART: multiple view
-	g_cfgs[g_primary].renderer->Clear(float3(0, 0, 0), *g_multiple_outputs[g_primary].output);
+
+
 
 }
 
@@ -1084,9 +1134,18 @@ int main(int argc, char * argv[])
 	{
 		InitCl();
 		InitData();
-		//ExtractMultipleFrames();
-		//ExtractSingleFrame("single");
-		ExtractSingleFrameMultipleView("combine_rendering");
+
+
+		if (g_pipeline_flag) {
+
+
+
+		} else {
+			//ExtractMultipleFrames();
+			//ExtractSingleFrame("single");
+			ExtractSingleFrameMultipleView("combine_rendering");
+		}
+
 	}
 	catch (std::runtime_error& err)
 	{
