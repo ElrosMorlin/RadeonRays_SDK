@@ -89,6 +89,7 @@ namespace Baikal
 		CLWBuffer<RadeonRays::float3> m_data;
 		CLWContext m_context;
 
+	public:
 		static const unsigned IMAGE_COUNT = 1;
 		static const unsigned BOUNCE_COUNT = 5;
 	};
