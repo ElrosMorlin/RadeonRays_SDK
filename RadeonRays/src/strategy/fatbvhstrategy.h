@@ -75,7 +75,8 @@ namespace RadeonRays
 			std::uint32_t maxrays,
 			Calc::Buffer* hits,
 			Calc::Event const* waitevent,
-			Calc::Event** event) const override;
+			Calc::Event** event,
+			size_t segment_count = MULTIPLE_VIEW_SIZE) const override;
 
 		// COVART: Multiple
 		void MultipleQueryOcclusion(std::uint32_t queueidx,
@@ -84,7 +85,8 @@ namespace RadeonRays
 			std::uint32_t maxrays,
 			Calc::Buffer* hits,
 			Calc::Event const* waitevent,
-			Calc::Event** event) const override;
+			Calc::Event** event,
+			size_t segment_count = MULTIPLE_VIEW_SIZE) const override;
         
     private:
         struct GpuData;

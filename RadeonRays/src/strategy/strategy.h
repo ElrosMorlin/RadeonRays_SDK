@@ -84,7 +84,8 @@ namespace RadeonRays
 			std::uint32_t maxrays,
 			Calc::Buffer* hits,
 			Calc::Event const* waitevent,
-			Calc::Event** event) const {
+			Calc::Event** event,
+			size_t segment_count) const {
 			throw("Not implemented");
 		};
 
@@ -95,7 +96,8 @@ namespace RadeonRays
 			std::uint32_t maxrays,
 			Calc::Buffer* hits,
 			Calc::Event const* waitevent,
-			Calc::Event** event) const {
+			Calc::Event** event,
+			size_t segment_count) const {
 			throw("Not implemented");
 		};
 

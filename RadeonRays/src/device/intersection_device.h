@@ -95,7 +95,7 @@ namespace RadeonRays
 		// hits is assumed AOS with elements of type RadeonRays::Intersection.
 		// The call waits until waitevent is resolved (on a target device) if waitevent != nullptr.
 		// The call is non-blocking if event is passed it, otherwise (event == nullptr) it is blocking.
-		virtual void MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event) const = 0;
+		virtual void MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event, size_t segment_count) const = 0;
 
 		// COVART: Multiple:  Find if the rays in rays buffer intersect any of the primitives in the scene. Take the number of rays from the buffer in remote memory.
 		// rays is assumed AOS with elements of type RadeonRays::ray.
@@ -103,7 +103,7 @@ namespace RadeonRays
 		// hits is assumed AOS with elements of type RadeonRays::Intersection.
 		// The call waits until waitevent is resolved (on a target device) if waitevent != nullptr.
 		// The call is non-blocking if event is passed it, otherwise (event == nullptr) it is blocking.
-		virtual void MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event) const = 0;
+		virtual void MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event, size_t segment_count) const = 0;
 
 
         IntersectionDevice(IntersectionDevice const&) = delete;

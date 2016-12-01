@@ -323,7 +323,7 @@ namespace RadeonRays
     }
 
 	// COVART: Multiple Version
-	void CalcIntersectionDevice::MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event) const
+	void CalcIntersectionDevice::MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event, size_t segment_count) const
 	{
 		// Extract Calc buffers from their holders
 		auto ray_buffer = static_cast<CalcBufferHolder const*>(rays)->m_buffer.get();
@@ -336,7 +336,7 @@ namespace RadeonRays
 		{
 			// event pointer has been provided, so construct holder and return event to the user
 			Calc::Event* calc_event = nullptr;
-			m_intersector->MultipleQueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
+			m_intersector->MultipleQueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event, segment_count);
 
 			auto holder = CreateEventHolder();
 			holder->Set(m_device.get(), calc_event);
@@ -344,12 +344,12 @@ namespace RadeonRays
 		}
 		else
 		{
-			m_intersector->MultipleQueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
+			m_intersector->MultipleQueryIntersection(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr, segment_count);
 		}
 	}
 
 	// COVART: Multiple Version
-	void CalcIntersectionDevice::MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event) const
+	void CalcIntersectionDevice::MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hits, Event const* waitevent, Event** event, size_t segment_count) const
 	{
 		// Extract Calc buffers from their holders
 		auto ray_buffer = static_cast<CalcBufferHolder const*>(rays)->m_buffer.get();
@@ -362,7 +362,7 @@ namespace RadeonRays
 		{
 			// event pointer has been provided, so construct holder and return event to the user
 			Calc::Event* calc_event = nullptr;
-			m_intersector->MultipleQueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event);
+			m_intersector->MultipleQueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, &calc_event, segment_count);
 
 			auto holder = CreateEventHolder();
 			holder->Set(m_device.get(), calc_event);
@@ -370,7 +370,7 @@ namespace RadeonRays
 		}
 		else
 		{
-			m_intersector->MultipleQueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr);
+			m_intersector->MultipleQueryOcclusion(0, ray_buffer, numrays_buffer, maxrays, hit_buffer, e, nullptr, segment_count);
 		}
 
 	}

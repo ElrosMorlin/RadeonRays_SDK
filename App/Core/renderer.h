@@ -64,6 +64,9 @@ namespace Baikal
 		virtual void MultipleViewRender(Scene&  scene) = 0;
 
 
+		//KAOCC: pipeline renderer
+		virtual void PipelineRender(Scene&  scene) = 0;
+
         struct BenchmarkStats
         {
             std::uint32_t num_passes;

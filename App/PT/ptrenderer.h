@@ -34,7 +34,7 @@ namespace Baikal
 {
     class ClwOutput;
 	class ClwMultipleOutput; // COVART
-	class ClwPipelineOutput; // KAOCC
+//	class ClwPipelineOutput; // KAOCC
 	struct ClwScene;
     class SceneTracker;
 
@@ -78,6 +78,9 @@ namespace Baikal
 		// Multiple View render, will modify the camera
 		void MultipleViewRender(Scene&  scene) override;
 
+		// KAOCC: pipeline render
+		void PipelineRender(Scene& scene) override;
+
         // Run render benchmark
         void RunBenchmark(Scene const& scene, std::uint32_t num_passes, BenchmarkStats& stats) override;
 
@@ -94,45 +97,46 @@ namespace Baikal
         void GeneratePrimaryRays(ClwScene const& scene);
 		// COVART: Generate rays
 		void MultipleGeneratePrimaryRays(ClwScene& scene);
+
+		void PipelineGeneratePrimaryRays(const ClwScene& scene, size_t offset);
+
         // Shade first hit
         void ShadeSurface(ClwScene const& scene, int pass);
 		// COVART: Shade first hit
-		void MultipleShadeSurface(ClwScene const& scene, int pass);
+		void MultipleShadeSurface(ClwScene const& scene, int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Evaluate volume
         void EvaluateVolume(ClwScene const& scene, int pass);
 		// COVART: Evaluate volume
-		void MultipleEvaluateVolume(ClwScene const& scene, int pass);
+		void MultipleEvaluateVolume(ClwScene const& scene, int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Handle missing rays
         void ShadeMiss(ClwScene const& scene, int pass);
 		// COVART: Handle missing rays
-		void MultipleShadeMiss(ClwScene const& scene, int pass);
+		void MultipleShadeMiss(ClwScene const& scene, int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Gather light samples and account for visibility
         void GatherLightSamples(ClwScene const& scene, int pass);
 		// COVART: Gather light samples and account for visibility
-		void MultipleGatherLightSamples(ClwScene const& scene, int pass);
+		void MultipleGatherLightSamples(ClwScene const& scene, int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Restore pixel indices after compaction
         void RestorePixelIndices(int pass);
 		// COVART: Restore pixel indices after compaction
-		void MultipleRestorePixelIndices(int pass);
+		void MultipleRestorePixelIndices(int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Convert intersection info to compaction predicate
         void FilterPathStream(int pass);
 		// COVART: Convert intersection info to compaction predicate
-		void MultipleFilterPathStream(int pass);
+		void MultipleFilterPathStream(int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Integrate volume
         void ShadeVolume(ClwScene const& scene, int pass);
 		// COVART: Integrate volume
-		void MultipleShadeVolume(ClwScene const& scene, int pass);
+		void MultipleShadeVolume(ClwScene const& scene, int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
         // Shade background
         void ShadeBackground(ClwScene const& scene, int pass);
 		// COVART: Shade background
-		void MultipleShadeBackground(ClwScene const& scene, int pass);
+		void MultipleShadeBackground(ClwScene const& scene, int pass, size_t segment_count = MULTIPLE_VIEW_SIZE);
 
 
 
 		// KAOCC:
 		
-
-
 
     public:
         // CL context
@@ -143,7 +147,7 @@ namespace Baikal
 		ClwMultipleOutput* m_multiple_output;
 
 		//KAOCC: pipeline Output object
-		ClwPipelineOutput* m_pipeline_output;
+		ClwMultipleOutput* m_pipeline_output;
 
         // Flag to reset the sampler
         mutable bool m_resetsampler;
@@ -163,7 +167,7 @@ namespace Baikal
 
 		// KAOCC: pipeline render data
 
-		std::unique_ptr<RenderData> m_pipeline_render_data;
+		std::unique_ptr<MultipleRenderData> m_pipeline_render_data;
 
         // Intersector data
         std::vector<RadeonRays::Shape*> m_shapes;

@@ -285,10 +285,10 @@ namespace RadeonRays
 
 		// COVART: Multiple: Find closest intersection, number of rays is in remote memory
 		// The call is asynchronous. Event pointers might be nullptrs.
-		virtual void MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event) const = 0;
+		virtual void MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event, size_t segment_count) const = 0;
 		// COVART: Multiple: Find any intersection.
 		// The call is asynchronous. Event pointer mights be nullptrs.
-		virtual void MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event) const = 0;
+		virtual void MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event, size_t segment_count) const = 0;
 
         /******************************************
         Utility

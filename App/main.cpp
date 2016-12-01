@@ -148,7 +148,7 @@ struct MultipleOutputData
 // KAOCC: Pipieline Output Data
 struct PipelineOutputData
 {
-	Baikal::ClwPipelineOutput* output;
+	Baikal::ClwMultipleOutput* output;
 	std::vector<float3> fdata;
 	std::vector<unsigned char> udata;
 	CLWBuffer<float3> copybuffer;
@@ -471,7 +471,7 @@ void InitData()
 #pragma omp parallel for
 		for (int i = 0; i < g_cfgs.size(); ++i) {
 
-			g_pipeline_outputs[i].output = (Baikal::ClwPipelineOutput*)g_cfgs[i].renderer->CreatePipelineOutput(g_window_width, g_window_height);
+			g_pipeline_outputs[i].output = (Baikal::ClwMultipleOutput*)g_cfgs[i].renderer->CreatePipelineOutput(g_window_width, g_window_height);
 
 			g_cfgs[i].renderer->SetPipelineOutput(g_pipeline_outputs[i].output);
 
@@ -930,6 +930,44 @@ void UpdateFrameMultiple(bool clear = false) {
 	*/
 }
 
+void UpdatePipelineFrame(bool clear = false) {
+
+	//KAOCC: caution ! we only use single device !!!
+	if (g_cfgs.size() > 1) {  // just to make sure
+		throw "g_cfgs.size > 1";
+	}
+
+	//KAOCC
+	if (clear)
+	{
+		g_scene->set_dirty(Baikal::Scene::kCamera);
+
+		if (g_num_samples > -1)
+		{
+			g_samplecount = 0;
+		}
+
+		for (int i = 0; i < g_cfgs.size(); ++i)
+		{
+			if (i == g_primary)
+				g_cfgs[i].renderer->Clear(float3(0, 0, 0), *g_pipeline_outputs[i].output);
+			else
+				g_ctrl[i].clear.store(true);
+		}
+	}
+
+
+	g_cfgs[g_primary].renderer->PipelineRender(*g_scene.get());
+	
+
+	std::cout << "Getting Data from GPU" << std::endl;
+
+	g_pipeline_outputs[g_primary].output->GetData(&g_pipeline_outputs[g_primary].fdata[0]);
+	float gamma = 2.2f;
+
+}
+
+
 void UpdateFrame(bool clear = false) {
 
 	if (clear)
@@ -1002,6 +1040,43 @@ void ExtractSingleFrame(const std::string& filename_prefix = "") {
 	}
 
 }
+
+
+void ExtractPipelineFrame(const std::string& filename_prefix = "") {
+
+	if (!g_interop) {
+
+		// ..... 
+		int sample_frame = 1;
+		for (int i = 0; i < sample_frame; i++) {
+			//UpdateFrame(i == 0); // clear screen buffer for first render
+
+
+			UpdatePipelineFrame(i == 0);
+
+		}
+
+
+		std::cout << "Preparing to write result" << std::endl;
+
+		std::ostringstream oss;
+		oss << filename_prefix << "_frame_num_" << sample_frame << "_";
+
+
+
+		// FIXME !
+		//SaveMultipleFrameBuffer(oss.str(), &g_multiple_outputs[g_primary].fdata[0]);
+
+		
+
+
+	} else {
+		std::cout << "Please disable interop to enable extraction" << std::endl;
+	}
+
+
+}
+
 
 void ExtractMultipleFrames() {
 	for (int i = 0;i < 5;i++) {
@@ -1139,10 +1214,11 @@ int main(int argc, char * argv[])
 		if (g_pipeline_flag) {
 
 
+			ExtractPipelineFrame("pipeline");
 
 		} else {
 			//ExtractMultipleFrames();
-			//ExtractSingleFrame("single");
+			ExtractSingleFrame("single");
 			ExtractSingleFrameMultipleView("combine_rendering");
 		}
 

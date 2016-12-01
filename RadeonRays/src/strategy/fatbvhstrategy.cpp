@@ -618,9 +618,9 @@ namespace RadeonRays
 	}
 
 	// COVART: Multiple
-	void FatBvhStrategy::MultipleQueryIntersection(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event) const
+	void FatBvhStrategy::MultipleQueryIntersection(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event, size_t segment_count) const
 	{
-		size_t stack_size = 4 * maxrays * kMaxStackSize * MULTIPLE_VIEW_SIZE; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
+		size_t stack_size = 4 * maxrays * kMaxStackSize * segment_count; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
 																			  // Check if we need to relocate memory
 		if (stack_size > m_gpudata->stack->GetSize())
 		{
@@ -649,15 +649,15 @@ namespace RadeonRays
 		func->SetArg(arg++, m_gpudata->stack);
 
 		size_t localsize = kWorkGroupSize;
-		size_t globalsize = batch_size * MULTIPLE_VIEW_SIZE;
+		size_t globalsize = batch_size * segment_count;
 
 		m_device->Execute(func, queueidx, globalsize, localsize, event);
 	}
 
 	// COVART: Multiple
-	void FatBvhStrategy::MultipleQueryOcclusion(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event) const
+	void FatBvhStrategy::MultipleQueryOcclusion(std::uint32_t queueidx, Calc::Buffer const* rays, Calc::Buffer const* numrays, std::uint32_t maxrays, Calc::Buffer* hits, Calc::Event const* waitevent, Calc::Event** event, size_t segment_count) const
 	{
-		size_t stack_size = 4 * maxrays * kMaxStackSize * MULTIPLE_VIEW_SIZE; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
+		size_t stack_size = 4 * maxrays * kMaxStackSize * segment_count; //required stack size, kMaxStackSize * sizeof(int) bytes per ray
 																			  // Check if we need to relocate memory
 		if (stack_size > m_gpudata->stack->GetSize())
 		{
@@ -686,7 +686,7 @@ namespace RadeonRays
 		func->SetArg(arg++, m_gpudata->stack);
 
 		size_t localsize = kWorkGroupSize;
-		size_t globalsize = batch_size * MULTIPLE_VIEW_SIZE;
+		size_t globalsize = batch_size * segment_count;
 
 		m_device->Execute(func, queueidx, globalsize, localsize, event);
 	}

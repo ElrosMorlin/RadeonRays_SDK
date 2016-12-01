@@ -124,10 +124,10 @@ namespace RadeonRays
 		// TODO: do we need to modify rays' intersection range?
 		// TODO: SoA vs AoS?
 		// The call is asynchronous. Event pointers might be nullptrs.
-		void MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event) const override;
+		void MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event, size_t segment_count) const override;
 		// COVART: Multiple: Find any intersection.
 		// The call is asynchronous. Event pointer mights be nullptrs.
-		void MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event) const override;
+		void MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event, size_t segment_count) const override;
 
         /******************************************
         Utility

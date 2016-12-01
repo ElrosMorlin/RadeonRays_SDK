@@ -145,14 +145,14 @@ namespace RadeonRays
         m_device->QueryOcclusion(rays, numrays, maxrays, hitresults, waitevent, event);
     }
 	// COVART: multiple version
-	void IntersectionApiImpl::MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event) const
+	void IntersectionApiImpl::MultipleQueryIntersection(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitinfos, Event const* waitevent, Event** event, size_t segment_count ) const
 	{
-		m_device->MultipleQueryIntersection(rays, numrays, maxrays, hitinfos, waitevent, event);
+		m_device->MultipleQueryIntersection(rays, numrays, maxrays, hitinfos, waitevent, event, segment_count);
 	}
 	// COVART: multiple version
-	void IntersectionApiImpl::MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event) const
+	void IntersectionApiImpl::MultipleQueryOcclusion(Buffer const* rays, Buffer const* numrays, int maxrays, Buffer* hitresults, Event const* waitevent, Event** event, size_t segment_count) const
 	{
-		m_device->MultipleQueryOcclusion(rays, numrays, maxrays, hitresults, waitevent, event);
+		m_device->MultipleQueryOcclusion(rays, numrays, maxrays, hitresults, waitevent, event, segment_count);
 	}
 	// COVART: multiple version
     void IntersectionApiImpl::DeleteEvent(Event* event) const
