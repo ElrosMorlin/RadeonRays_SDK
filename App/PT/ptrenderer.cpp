@@ -339,16 +339,21 @@ namespace Baikal
 		// Number of rays to generate
 		int maxrays = m_pipeline_output->width() * m_pipeline_output->height();
 
-		// Generate primary
-		PipelineGeneratePrimaryRays(clwscene, 0);  //tmp, need to change the offset
+		// hit mask
+		std::vector<int>hit_mask(m_num_bounces, maxrays);
+		std::vector<int>index_mask(maxrays);
+		std::iota(index_mask.begin(), index_mask.end(), 0);
 
-		// test
-		//PipelineGeneratePrimaryRays(clwscene, maxrays* 2 );
+		// Generate primary
+		PipelineGeneratePrimaryRays(clwscene, 0, 0);  //tmp, need to change the offset
+
+		// test only
+//		PipelineGeneratePrimaryRays(clwscene, maxrays * 1);
 
 		// Copy compacted indices to track reverse indices
 		m_context.CopyBuffer(0, m_pipeline_render_data->iota, m_pipeline_render_data->pixelindices[0], 0, 0, m_pipeline_render_data->iota.GetElementCount());
 		m_context.CopyBuffer(0, m_pipeline_render_data->iota, m_pipeline_render_data->pixelindices[1], 0, 0, m_pipeline_render_data->iota.GetElementCount());
-		m_context.FillBuffer(0, m_pipeline_render_data->hitcount, maxrays, 5);
+		m_context.FillBuffer(0, m_pipeline_render_data->hitcount, maxrays, 1);  //tmp
 
 		// keep the primary rays ?
 		std::vector<ray> primary_ray_storage(maxrays);
@@ -362,19 +367,17 @@ namespace Baikal
 		std::vector<int> num_active_ray(m_num_bounces);
 		int accu_active_ray = 0;
 
-
-		// hit mask
-		std::vector<int>hit_mask(maxrays, 1);
 		
 
 		const int STATE_COUNT = m_num_bounces * 2 - 1;
 
 		for (int pass = 0; pass < STATE_COUNT; ++pass) {
 
-			int offset = m_num_bounces * pass;
+			//int offset = m_num_bounces * pass;
 			
 			// Clear ray hits buffer
 			m_context.FillBuffer(0, m_pipeline_render_data->hits, 0, m_pipeline_render_data->hits.GetElementCount());
+
 
 			// TODO: need to change the counter
 			Event* e = nullptr;
@@ -382,13 +385,6 @@ namespace Baikal
 			e->Wait();
 
 
-			m_context.ReadBuffer(0, m_pipeline_render_data->hitcount, num_active_ray.data(), m_num_bounces).Wait();
-			std::cout << "Bounce:" << pass << std::endl;
-			accu_active_ray = 0;
-			for (int i = 0; i < m_num_bounces; i++) {
-				std::cout << "Segment " << i << " : " << num_active_ray [i] << std::endl;
-				accu_active_ray += num_active_ray[i];
-			}
 
 
 			// KAOCC: change m_multiple_output to pipeline
@@ -418,8 +414,27 @@ namespace Baikal
 			// ===========================
 
 
+			m_context.ReadBuffer(0, m_pipeline_render_data->hitcount, num_active_ray.data(), m_num_bounces).Wait();
+			std::cout << "Bounce:" << pass << std::endl;
+			accu_active_ray = 0;
+			for (int i = 0; i < m_num_bounces; i++) {
+				std::cout << "Segment " << i << " : " << num_active_ray[i] << std::endl;
+				accu_active_ray += num_active_ray[i];
+			}
+
+			std::cout << "Active Ray: " << accu_active_ray << std::endl;
+
 			m_pipeline_render_data->pp.MultipleCompact(0, m_pipeline_render_data->hits, m_pipeline_render_data->iota, m_pipeline_render_data->compacted_indices, m_pipeline_render_data->hitcount, m_num_bounces);
 
+
+
+			m_context.ReadBuffer(0, m_pipeline_render_data->hitcount, num_active_ray.data(), m_num_bounces).Wait();
+			std::cout << "Bounce:" << pass << std::endl;
+			accu_active_ray = 0;
+			for (int i = 0; i < m_num_bounces; i++) {
+				std::cout << "Segment " << i << " : " << num_active_ray[i] << std::endl;
+				//accu_active_ray += num_active_ray[i];
+			}
 
 			//---------------
 
@@ -428,17 +443,17 @@ namespace Baikal
 			m_multiple_output = std::move(m_pipeline_output);
 
 			// Advance indices to keep pixel indices up to date
-			MultipleRestorePixelIndices(pass);
+			MultipleRestorePixelIndices(pass, m_num_bounces);
 
 			// Shade hits
-			MultipleShadeVolume(clwscene, pass);
+			MultipleShadeVolume(clwscene, pass, m_num_bounces);
 
 			// Shade hits
-			MultipleShadeSurface(clwscene, pass);
+			MultipleShadeSurface(clwscene, pass, m_num_bounces);
 
 			// Shade missing rays
 			if (pass == 0)
-				MultipleShadeMiss(clwscene, pass);
+				MultipleShadeMiss(clwscene, pass, m_num_bounces);
 
 			// Intersect shadow rays
 			api->MultipleQueryOcclusion(m_multiple_render_data->fr_shadowrays, m_multiple_render_data->fr_hitcount, maxrays, m_multiple_render_data->fr_shadowhits, nullptr, nullptr, m_num_bounces);
@@ -446,7 +461,7 @@ namespace Baikal
 			//m_api->DeleteEvent(e);
 
 			// Gather light samples and account for visibility
-			MultipleGatherLightSamples(clwscene, pass);
+			MultipleGatherLightSamples(clwscene, pass, m_num_bounces);
 			//
 
 
@@ -459,12 +474,16 @@ namespace Baikal
 
 
 			// Pipeline !
-//			PipelineGeneratePrimaryRays(clwscene, ((pass + 1) % m_num_bounces) * maxrays);
-//			m_context.WriteBuffer(0, m_pipeline_render_data->hitcount, hit_mask.data(), 10, 10);
-
+			int next_segment_id = (pass + 1) % m_num_bounces;
+			PipelineGeneratePrimaryRays(clwscene, next_segment_id * maxrays, next_segment_id);
+			m_context.WriteBuffer(0, m_pipeline_render_data->hitcount, hit_mask.data(), next_segment_id, 1);
+			m_context.WriteBuffer(0, m_pipeline_render_data->pixelindices[pass & 0x1], index_mask.data(), next_segment_id * maxrays, index_mask.size());
+			m_context.WriteBuffer(0, m_pipeline_render_data->pixelindices[(pass + 1) & 0x1], index_mask.data(), next_segment_id * maxrays, index_mask.size());
 
 			m_context.Flush(0);
 
+
+			//TODO: check for output
 
 		}
 
@@ -520,7 +539,7 @@ namespace Baikal
 			std::cout << "Bounce:" << pass << std::endl;
 			accu_active_ray = 0;
 			for (int i = 0;i < MULTIPLE_VIEW_SIZE;i++) {
-				//std::cout << "View " << i << " : " << num_active_ray [i] << std::endl;
+				std::cout << "View " << i << " : " << num_active_ray [i] << std::endl;
 				accu_active_ray += num_active_ray[i];
 			}
 #endif
@@ -890,7 +909,7 @@ namespace Baikal
     }
 
 	// KAOCC
-	void PtRenderer::PipelineGeneratePrimaryRays(ClwScene const& scene, size_t offset)
+	void PtRenderer::PipelineGeneratePrimaryRays(ClwScene const& scene, size_t offset, size_t pass)
 	{
 		// Fetch kernel
 		//std::string kernel_name = (scene.camera_type == CameraType::kDefault) ? "PerspectiveCamera_GeneratePaths" : "PerspectiveCameraDof_GeneratePaths";
@@ -904,7 +923,7 @@ namespace Baikal
 		genkernel.SetArg(1, m_pipeline_output->width());
 		genkernel.SetArg(2, m_pipeline_output->height());
 		genkernel.SetArg(3, (int)rand_uint());
-		genkernel.SetArg(4, m_pipeline_render_data->rays[0]);
+		genkernel.SetArg(4, m_pipeline_render_data->rays[pass & 0x1]);
 		genkernel.SetArg(5, m_pipeline_render_data->samplers);
 		genkernel.SetArg(6, m_pipeline_render_data->sobolmat);
 		genkernel.SetArg(7, m_resetsampler);

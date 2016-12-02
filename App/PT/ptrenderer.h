@@ -98,7 +98,7 @@ namespace Baikal
 		// COVART: Generate rays
 		void MultipleGeneratePrimaryRays(ClwScene& scene);
 
-		void PipelineGeneratePrimaryRays(const ClwScene& scene, size_t offset);
+		void PipelineGeneratePrimaryRays(const ClwScene& scene, size_t offset, size_t pass);
 
         // Shade first hit
         void ShadeSurface(ClwScene const& scene, int pass);

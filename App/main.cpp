@@ -475,11 +475,11 @@ void InitData()
 
 			g_cfgs[i].renderer->SetPipelineOutput(g_pipeline_outputs[i].output);
 
-			g_pipeline_outputs[i].fdata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
-			g_pipeline_outputs[i].udata.resize(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE);
+			g_pipeline_outputs[i].fdata.resize(g_window_width * g_window_height * g_num_bounces);
+			g_pipeline_outputs[i].udata.resize(g_window_width * g_window_height * 4 * g_num_bounces);
 
 			if (g_cfgs[i].type == ConfigManager::kPrimary) {
-				g_pipeline_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height * MULTIPLE_VIEW_SIZE, CL_MEM_READ_WRITE);
+				g_pipeline_outputs[i].copybuffer = g_cfgs[i].context.CreateBuffer<float3>(g_window_width * g_window_height * g_num_bounces, CL_MEM_READ_WRITE);
 			}
 
 

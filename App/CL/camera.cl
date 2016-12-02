@@ -173,10 +173,10 @@ __kernel void PerspectiveCamera_GeneratePipelinePaths(
     if (globalid.x < imgwidth && globalid.y < imgheight)
     {
         // Get pointer to ray to handle
-        __global ray* myray = rays + offset + globalid.y * imgwidth + globalid.x;
+        __global ray* myray = rays + offset + (globalid.y * imgwidth + globalid.x);
 
 #ifndef NO_PATH_DATA
-        __global Path* mypath = paths + globalid.y * imgwidth + globalid.x;
+        __global Path* mypath = paths + offset + (globalid.y * imgwidth + globalid.x);
 #endif
         
         // Prepare RNG
@@ -184,7 +184,7 @@ __kernel void PerspectiveCamera_GeneratePipelinePaths(
         InitRng(randseed +  globalid.x * 157 + 10433 * globalid.y, &rng);
 
 #ifdef SOBOL
-        __global SobolSampler* sampler = samplers + globalid.y * imgwidth + globalid.x;
+        __global SobolSampler* sampler = samplers + offset + (globalid.y * imgwidth + globalid.x);
 
         if (reset)
         {
