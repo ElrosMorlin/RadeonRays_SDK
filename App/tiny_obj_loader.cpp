@@ -436,8 +436,8 @@ std::string LoadMtl (
     // diffuse texture
     if ((0 == strncmp(token, "map_Kd", 6)) && isSpace(token[6])) {
       token += 7;
-      material.diffuse_texname = token;
-      continue;
+	  continue;
+      material.diffuse_texname = token; 
     }
 
     // specular texture

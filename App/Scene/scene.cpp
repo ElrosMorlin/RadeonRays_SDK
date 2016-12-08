@@ -316,7 +316,7 @@ Scene* Scene::LoadFromObj(std::string const& filename, std::string const& basepa
             matmap[i] = scene->materials_.size() - 1;
             continue;
         }
-        else if (objmaterials[i].name == "phong4SG" || objmaterials[i].name == "Material.007" || objmaterials[i].name == "glass_architectural")
+        else if (objmaterials[i].name == "phong4SG" || objmaterials[i].name == "glass_architectural")
         {
 
             Material refract;
@@ -1003,7 +1003,7 @@ Scene* Scene::LoadFromObj(std::string const& filename, std::string const& basepa
             int matidx = matmap[objshapes[s].mesh.material_ids[i]];
             scene->materialids_.push_back(matidx);
 
-            if (scene->materials_[matidx].type == kEmissive)
+            if (!scene->materials_.empty() && scene->materials_[matidx].type == kEmissive)
             {
                 Emissive emissive;
                 emissive.shapeidx = s;
