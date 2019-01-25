@@ -111,8 +111,6 @@ typedef struct
             int i0, i1, i2;
             // Address of a left child
             int child0;
-            // Shape mask
-            int shape_mask;
             // Shape ID
             int shape_id;
             // Primitive ID
@@ -142,6 +140,9 @@ occluded_main(
     GLOBAL int* hits
     )
 {
+    // Allocate stack in LDS
+    __local int lds[SHORT_STACK_SIZE * WAVEFRONT_SIZE];
+
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
     int group_id = get_group_id(0);
@@ -156,8 +157,7 @@ occluded_main(
             // Allocate stack in global memory 
             __global int* gm_stack_base = stack + (group_id * WAVEFRONT_SIZE + local_id) * GLOBAL_STACK_SIZE;
             __global int* gm_stack = gm_stack_base;
-            // Allocate stack in LDS
-            __local int lds[SHORT_STACK_SIZE * WAVEFRONT_SIZE];
+
             __local int* lm_stack_base = lds + local_id;
             __local int* lm_stack = lm_stack_base;
 
@@ -185,19 +185,26 @@ occluded_main(
                 // Check if it is a leaf
                 if (LEAFNODE(node))
                 {
-                    // Leafs directly store vertex indices
-                    // so we load vertices directly
-                    float3 const v1 = vertices[node.i0];
-                    float3 const v2 = vertices[node.i1];
-                    float3 const v3 = vertices[node.i2];
-                    // Intersect triangle
-                    float const f = fast_intersect_triangle(r, v1, v2, v3, t_max);
-                    // If hit update closest hit distance and index
-                    if (f < t_max)
+#ifdef RR_RAY_MASK
+                    if (ray_get_mask(&r) != node.shape_id)
                     {
-                        hits[global_id] = HIT_MARKER;
-                        return;
+#endif // RR_RAY_MASK
+                        // Leafs directly store vertex indices
+                        // so we load vertices directly
+                        float3 const v1 = vertices[node.i0];
+                        float3 const v2 = vertices[node.i1];
+                        float3 const v3 = vertices[node.i2];
+                        // Intersect triangle
+                        float const f = fast_intersect_triangle(r, v1, v2, v3, t_max);
+                        // If hit update closest hit distance and index
+                        if (f < t_max)
+                        {
+                            hits[global_id] = HIT_MARKER;
+                            return;
+                        }
+#ifdef RR_RAY_MASK
                     }
+#endif // RR_RAY_MASK
                 }
                 else
                 {
@@ -293,6 +300,9 @@ KERNEL void intersect_main(
     // Hit data
     GLOBAL Intersection* hits)
 {
+    // Allocate stack in LDS
+    __local int lds[SHORT_STACK_SIZE * WAVEFRONT_SIZE];
+
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
     int group_id = get_group_id(0);
@@ -307,8 +317,6 @@ KERNEL void intersect_main(
             // Allocate stack in global memory 
             __global int* gm_stack_base = stack + (group_id * WAVEFRONT_SIZE + local_id) * GLOBAL_STACK_SIZE;
             __global int* gm_stack = gm_stack_base;
-            // Allocate stack in LDS
-            __local int lds[SHORT_STACK_SIZE * WAVEFRONT_SIZE];
             __local int* lm_stack_base = lds + local_id;
             __local int* lm_stack = lm_stack_base;
 
@@ -336,19 +344,26 @@ KERNEL void intersect_main(
                 // Check if it is a leaf
                 if (LEAFNODE(node))
                 {
-                    // Leafs directly store vertex indices
-                    // so we load vertices directly
-                    float3 const v1 = vertices[node.i0];
-                    float3 const v2 = vertices[node.i1];
-                    float3 const v3 = vertices[node.i2];
-                    // Intersect triangle
-                    float const f = fast_intersect_triangle(r, v1, v2, v3, t_max);
-                    // If hit update closest hit distance and index
-                    if (f < t_max)
+#ifdef RR_RAY_MASK
+                    if (ray_get_mask(&r) != node.shape_id)
                     {
-                        t_max = f;
-                        isect_idx = addr;
+#endif // RR_RAY_MASK
+                        // Leafs directly store vertex indices
+                        // so we load vertices directly
+                        float3 const v1 = vertices[node.i0];
+                        float3 const v2 = vertices[node.i1];
+                        float3 const v3 = vertices[node.i2];
+                        // Intersect triangle
+                        float const f = fast_intersect_triangle(r, v1, v2, v3, t_max);
+                        // If hit update closest hit distance and index
+                        if (f < t_max)
+                        {
+                            t_max = f;
+                            isect_idx = addr;
+                        }
+#ifdef RR_RAY_MASK
                     }
+#endif // RR_RAY_MASK
                 }
                 else
                 {
@@ -433,7 +448,7 @@ KERNEL void intersect_main(
                 float3 const v3 = vertices[node.i2];
                 // Calculate hit position
                 float3 const p = r.o.xyz + r.d.xyz * t_max;
-                // Calculte barycentric coordinates
+                // Calculate barycentric coordinates
                 float2 const uv = triangle_calculate_barycentrics(p, v1, v2, v3);
                 // Update hit information
                 hits[global_id].shape_id = node.shape_id;

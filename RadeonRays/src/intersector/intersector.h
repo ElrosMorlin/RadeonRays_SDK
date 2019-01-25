@@ -55,7 +55,7 @@ namespace RadeonRays
         // which is going to be used by an intersector.
         Intersector(Calc::Device* device);
         // Destructor.
-        virtual ~Intersector();
+        virtual ~Intersector() = default;
 
         /** 
         \brief Check if the intersector is compatible with a given world.
@@ -163,11 +163,11 @@ namespace RadeonRays
 
 #ifdef RR_EMBED_KERNELS
 #if USE_OPENCL
-#    include "RadeonRays/src/kernelcache/kernels_cl.h"
+#    include "kernels_cl.h"
 #endif
 
 #if USE_VULKAN
-#    include <RadeonRays/src/kernelcache/kernels_vk.h>
+#    include "kernels_vk.h"
 #endif
 #endif // RR_EMBED_KERNELS
 

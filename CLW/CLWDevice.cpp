@@ -32,7 +32,7 @@ CLWDevice::CLWDevice(cl_device_id id) : ReferenceCounter<cl_device_id, clRetainD
     GetDeviceInfoParameter(*this, CL_DEVICE_NAME, name_);
     GetDeviceInfoParameter(*this, CL_DEVICE_EXTENSIONS, extensions_);
     GetDeviceInfoParameter(*this, CL_DEVICE_VENDOR, vendor_);
-    GetDeviceInfoParameter(*this, CL_DEVICE_VERSION, version_);
+    GetDeviceInfoParameter(*this, CL_DRIVER_VERSION, version_);
     GetDeviceInfoParameter(*this, CL_DEVICE_PROFILE, profile_);
     GetDeviceInfoParameter(*this, CL_DEVICE_TYPE, type_);
     
@@ -42,10 +42,6 @@ CLWDevice::CLWDevice(cl_device_id id) : ReferenceCounter<cl_device_id, clRetainD
     GetDeviceInfoParameter(*this, CL_DEVICE_LOCAL_MEM_TYPE, localMemType_);
     GetDeviceInfoParameter(*this, CL_DEVICE_MAX_MEM_ALLOC_SIZE, maxAllocSize_);
     GetDeviceInfoParameter(*this, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, minAlignSize_);
-}
-
-CLWDevice::~CLWDevice()
-{
 }
 
 template <> void CLWDevice::GetDeviceInfoParameter<std::string>(cl_device_id id, cl_device_info param, std::string& value)

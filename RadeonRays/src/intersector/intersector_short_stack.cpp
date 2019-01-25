@@ -34,7 +34,7 @@
 
 #include <algorithm>
 
- // Preferred work group size for Radeon devices
+// Preferred work group size for Radeon devices
 static int const kWorkGroupSize = 64;
 static int const kMaxStackSize = 48;
 static int const kMaxBatchSize = 1024 * 1024;
@@ -57,13 +57,13 @@ namespace RadeonRays
         Calc::Function* occlude_func;
 
         GpuData(Calc::Device* d)
-        : device(d)
-                          , bvh(nullptr)
-                          , vertices(nullptr)
-                          , stack(nullptr)
-                          , executable(nullptr)
-                          , isect_func(nullptr)
-                          , occlude_func(nullptr)
+            : device(d)
+            , bvh(nullptr)
+            , vertices(nullptr)
+            , stack(nullptr)
+            , executable(nullptr)
+            , isect_func(nullptr)
+            , occlude_func(nullptr)
         {
         }
 
@@ -83,13 +83,15 @@ namespace RadeonRays
         , m_gpudata(new GpuData(device))
         , m_bvh(nullptr)
     {
-        std::string buildopts =
+        std::string buildopts;
 #ifdef RR_RAY_MASK
-            "-D RR_RAY_MASK ";
-#else
-            "";
+        buildopts.append("-D RR_RAY_MASK ");
 #endif
-        
+
+#ifdef RR_BACKFACE_CULL
+        buildopts.append("-D RR_BACKFACE_CULL ");
+#endif // RR_BACKFACE_CULL
+
 #ifdef USE_SAFE_MATH
         buildopts.append("-D USE_SAFE_MATH ");
 #endif
@@ -225,8 +227,7 @@ namespace RadeonRays
                 numvertices += mesh->num_vertices();
             }
 
-
-            // We can't avoild allocating it here, since bounds aren't stored anywhere
+            // We can't avoid allocating it here, since bounds aren't stored anywhere
             std::vector<bbox> bounds(numfaces);
 
             // We handle meshes first collecting their world space bounds
@@ -352,7 +353,7 @@ namespace RadeonRays
                 // Besides that we need to permute the faces accorningly to BVH reordering, whihc
                 // is contained within bvh.primids_
                 int const* reordering = m_bvh->GetIndices();
-                for (int i = 0; i < numindices; ++i)
+                for (size_t i = 0; i < numindices; ++i)
                 {
                     int indextolook4 = reordering[i];
 
@@ -386,7 +387,6 @@ namespace RadeonRays
                     facedata[i].idx[2] = myfacedata[faceidx].idx[2] + mystartidx;
 
                     facedata[i].shapeidx = shapes[shapeidx]->GetId();
-                    facedata[i].shape_mask = shapes[shapeidx]->GetMask();
                     facedata[i].id = faceidx;
                 }
 
@@ -397,6 +397,11 @@ namespace RadeonRays
             m_gpudata->bvh = m_device->CreateBuffer(translator.nodes_.size() * sizeof(FatNodeBvhTranslator::Node), Calc::BufferType::kRead, &translator.nodes_[0]);
 
             // Stack
+            if (m_gpudata->stack)
+            {
+                m_device->DeleteBuffer(m_gpudata->stack);
+                m_gpudata->stack = nullptr;
+            }
             m_gpudata->stack = m_device->CreateBuffer(kMaxBatchSize*kMaxStackSize, Calc::BufferType::kWrite);
 
             // Make sure everything is commited

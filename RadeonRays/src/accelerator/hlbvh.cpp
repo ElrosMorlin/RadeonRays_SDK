@@ -36,7 +36,10 @@ THE SOFTWARE.
 
 #ifdef RR_EMBED_KERNELS
 #if USE_OPENCL
-#    include "RadeonRays/src/kernelcache/kernels_cl.h"
+#    include "kernels_cl.h"
+#endif
+#if USE_VULKAN
+#    include "kernels_vk.h"
 #endif
 #endif // RR_EMBED_KERNELS
 
@@ -52,11 +55,6 @@ namespace RadeonRays
     , m_gpudata(new GpuData(device))
     {
         InitGpuData();
-    }
-    
-    
-    Hlbvh::~Hlbvh()
-    {
     }
     
     void Hlbvh::AllocateBuffers(size_t num_prims)
@@ -164,7 +162,7 @@ namespace RadeonRays
         // Make sure to allocate enough mem on GPU
         // We are trying to reuse space as reallocation takes time
         // but this call might be really frequent
-        if (size > m_gpudata->positions->GetSize())
+        if (static_cast<size_t>(size) > m_gpudata->positions->GetSize())
         {
             AllocateBuffers(size);
         }

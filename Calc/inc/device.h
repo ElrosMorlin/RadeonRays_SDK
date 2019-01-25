@@ -47,10 +47,12 @@ namespace Calc
         std::uint32_t min_alignment;
         std::uint32_t max_num_queues;
 
-        std::size_t global_mem_size;
-        std::size_t local_mem_size;
-        std::size_t max_alloc_size;
+        unsigned long long global_mem_size;
+        unsigned long long local_mem_size;
+        unsigned long long max_alloc_size;
         std::size_t max_local_size;
+
+        bool has_fp16;
     };
 
     // Main interface to control compute device

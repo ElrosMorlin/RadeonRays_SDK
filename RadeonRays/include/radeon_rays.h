@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "math/matrix.h"
 #include "math/ray.h"
 #include "math/mathutils.h"
+#include <cstdint>
         
 #define RADEONRAYS_API_VERSION 2.0
 
@@ -38,15 +39,11 @@ THE SOFTWARE.
     #else
         #define RRAPI __declspec(dllimport)
     #endif
-#elif defined(__GNUC__)
-    #ifdef EXPORT_API
+#else
         #define RRAPI __attribute__((visibility ("default")))
-    #else
-        #define RRAPI
-    #endif
 #endif
 #else
-#define RRAPI
+    #define RRAPI
 #endif
 namespace RadeonRays
 {
@@ -85,7 +82,7 @@ namespace RadeonRays
     };
 
     // Forward declaration of entities
-    typedef int Id;
+    using Id = int;
     const Id kNullId = -1;
 
     // Shape interface to repesent intersectable entities
@@ -94,7 +91,7 @@ namespace RadeonRays
     class RRAPI Shape
     {
     public:
-        virtual ~Shape() = 0;
+        virtual ~Shape() = default;
 
         // World space transform
         virtual void SetTransform(matrix const& m, matrix const& minv) = 0;
@@ -110,10 +107,6 @@ namespace RadeonRays
         // ID of a shape
         virtual void SetId(Id id) = 0;
         virtual Id GetId() const = 0;
-
-        // Geometry mask to mask out intersections
-        virtual void SetMask(int mask) = 0;
-        virtual int  GetMask() const = 0;
     };
 
     // Buffer represents a chunk of memory hosted inside the API
@@ -121,14 +114,14 @@ namespace RadeonRays
     class RRAPI Buffer
     {
     public:
-        virtual ~Buffer() = 0;
+        virtual ~Buffer() = default;
     };
 
     // Synchronization object returned by some API routines.
     class RRAPI Event
     {
     public:
-        virtual ~Event() = 0;
+        virtual ~Event() = default;
         // Indicates whether the related action has been completed
         virtual bool Complete() const = 0;
         // Blocks execution until the event is completed
@@ -139,7 +132,7 @@ namespace RadeonRays
     class RRAPI Exception
     {
     public:
-        virtual ~Exception() = 0;
+        virtual ~Exception() = default;
         virtual char const* what() const = 0;
     };
 
@@ -304,15 +297,12 @@ namespace RadeonRays
         virtual void SetOption(char const* name, float value) = 0;
 
     protected:
-        IntersectionApi();
-        IntersectionApi(IntersectionApi const&);
-        IntersectionApi& operator = (IntersectionApi const&);
+        IntersectionApi() = default;
+        IntersectionApi(IntersectionApi const&) = delete;
+        IntersectionApi& operator = (IntersectionApi const&) = delete;
 
-        virtual ~IntersectionApi() = 0;
+        virtual ~IntersectionApi() = default;
     };
-
-    inline IntersectionApi::IntersectionApi(){}
-    inline IntersectionApi::~IntersectionApi(){}
 
     inline Intersection::Intersection()
         : shapeid(kNullId)
@@ -320,10 +310,6 @@ namespace RadeonRays
     {
     }
 
-    inline Buffer::~Buffer(){}
-    inline Shape::~Shape(){}
-    inline Event::~Event(){}
-    inline Exception::~Exception(){}
 }
 
 
